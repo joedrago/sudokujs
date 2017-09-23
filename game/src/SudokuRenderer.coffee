@@ -1,9 +1,10 @@
+FontFaceObserver = require 'FontFaceObserver'
 SudokuGame = require './SudokuGame'
 
-VALUE_POS_X = 1
-VALUE_POS_Y = 10
-VALUE_CLEAR_POS_X = 2
-VALUE_CLEAR_POS_Y = 13
+PEN_POS_X = 1
+PEN_POS_Y = 10
+PEN_CLEAR_POS_X = 2
+PEN_CLEAR_POS_Y = 13
 
 PENCIL_POS_X = 5
 PENCIL_POS_Y = 10
@@ -13,17 +14,18 @@ PENCIL_CLEAR_POS_Y = 13
 NEWGAME_POS_X = 4
 NEWGAME_POS_Y = 13
 
-COLOR_VALUE = "black"
-COLOR_PENCIL = "#0000ff"
-COLOR_ERROR = "#ff0000"
-COLOR_DONE = "#cccccc"
-COLOR_NEWGAME = "#008833"
-COLOR_BACKGROUND_SELECTED = "#eeeeaa"
-COLOR_BACKGROUND_LOCKED = "#eeeeee"
-COLOR_BACKGROUND_LOCKED_CONFLICTED = "#ffffee"
-COLOR_BACKGROUND_LOCKED_SELECTED = "#eeeedd"
-COLOR_BACKGROUND_CONFLICTED = "#ffffdd"
-COLOR_BACKGROUND_ERROR = "#ffdddd"
+Color =
+  value: "black"
+  pencil: "#0000ff"
+  error: "#ff0000"
+  done: "#cccccc"
+  newGame: "#008833"
+  backgroundSelected: "#eeeeaa"
+  backgroundLocked: "#eeeeee"
+  backgroundLockedConflicted: "#ffffee"
+  backgroundLockedSelected: "#eeeedd"
+  backgroundConflicted: "#ffffdd"
+  backgroundError: "#ffdddd"
 
 ActionType =
   SELECT: 0
@@ -39,13 +41,10 @@ class SudokuRenderer
     @ctx = @canvas.getContext("2d")
     console.log "canvas size #{@canvas.width}x#{@canvas.height}"
 
-    # calc @cellSize
-    if @canvas.width < @canvas.height
-      # Portrait, aka not dumb.
-      @cellSize = @canvas.width / 9
-    else
-      # Landscape, aka dumb. Pretend we're portrait.
-      @cellSize = @canvas.height / 15
+    widthBasedCellSize = @canvas.width / 9
+    heightBasedCellSize = @canvas.height / 14
+    console.log "widthBasedCellSize #{widthBasedCellSize} heightBasedCellSize #{heightBasedCellSize}"
+    @cellSize = Math.min(widthBasedCellSize, heightBasedCellSize)
 
     # calc render constants
     @lineWidthThin = 1
@@ -58,13 +57,13 @@ class SudokuRenderer
     # init fonts
     @font =
       pencil:
-        style: "#{fontPixelsS}px monospace"
+        style: "#{fontPixelsS}px saxMono, monospace"
         height: 0
       newgame:
-        style: "#{fontPixelsM}px monospace"
+        style: "#{fontPixelsM}px saxMono, monospace"
         height: 0
       pen:
-        style: "#{fontPixelsL}px monospace"
+        style: "#{fontPixelsL}px saxMono, monospace"
         height: 0
     for fontName, f of @font
       @ctx.font = f.style
@@ -83,6 +82,8 @@ class SudokuRenderer
 
     @draw()
 
+    @redrawWhenFontLoads()
+
   initActions: ->
     @actions = new Array(9 * 15).fill(null)
 
@@ -93,7 +94,7 @@ class SudokuRenderer
 
     for j in [0...3]
       for i in [0...3]
-        index = ((VALUE_POS_Y + j) * 9) + (VALUE_POS_X + i)
+        index = ((PEN_POS_Y + j) * 9) + (PEN_POS_X + i)
         @actions[index] = { type: ActionType.VALUE, x: 1 + (j * 3) + i, y: 0 }
 
     for j in [0...3]
@@ -102,7 +103,7 @@ class SudokuRenderer
         @actions[index] = { type: ActionType.PENCIL, x: 1 + (j * 3) + i, y: 0 }
 
     # Value clear button
-    index = (VALUE_CLEAR_POS_Y * 9) + VALUE_CLEAR_POS_X
+    index = (PEN_CLEAR_POS_Y * 9) + PEN_CLEAR_POS_X
     @actions[index] = { type: ActionType.VALUE, x: 10, y: 0 }
 
     # Pencil clear button
@@ -182,33 +183,33 @@ class SudokuRenderer
 
         backgroundColor = null
         font = @font.pen
-        textColor = COLOR_VALUE
+        textColor = Color.value
         text = ""
         if cell.value == 0
           font = @font.pencil
-          textColor = COLOR_PENCIL
+          textColor = Color.pencil
           text = @game.pencilString(i, j)
         else
           if cell.value > 0
             text = String(cell.value)
 
         if cell.locked
-          backgroundColor = COLOR_BACKGROUND_LOCKED
+          backgroundColor = Color.backgroundLocked
 
         if (@highlightX != -1) && (@highlightY != -1)
           if (i == @highlightX) && (j == @highlightY)
             if cell.locked
-              backgroundColor = COLOR_BACKGROUND_LOCKED_SELECTED
+              backgroundColor = Color.backgroundLockedSelected
             else
-              backgroundColor = COLOR_BACKGROUND_SELECTED
+              backgroundColor = Color.backgroundSelected
           else if @conflicts(i, j, @highlightX, @highlightY)
             if cell.locked
-              backgroundColor = COLOR_BACKGROUND_LOCKED_CONFLICTED
+              backgroundColor = Color.backgroundLockedConflicted
             else
-              backgroundColor = COLOR_BACKGROUND_CONFLICTED
+              backgroundColor = Color.backgroundConflicted
 
         if cell.error
-          textColor = COLOR_ERROR
+          textColor = Color.error
 
         @drawCell(i, j, backgroundColor, text, font, textColor)
 
@@ -217,41 +218,41 @@ class SudokuRenderer
       for i in [0...3]
         currentValue = (j * 3) + i + 1
         currentValueString = String(currentValue)
-        valueColor = COLOR_VALUE
-        pencilColor = COLOR_PENCIL
+        valueColor = Color.value
+        pencilColor = Color.pencil
         if done[(j * 3) + i]
-          valueColor = COLOR_DONE
-          pencilColor = COLOR_DONE
+          valueColor = Color.done
+          pencilColor = Color.done
 
         valueBackgroundColor = null
         pencilBackgroundColor = null
         if @penValue == currentValue
           if @isPencil
-            pencilBackgroundColor = COLOR_BACKGROUND_SELECTED
+            pencilBackgroundColor = Color.backgroundSelected
           else
-            valueBackgroundColor = COLOR_BACKGROUND_SELECTED
+            valueBackgroundColor = Color.backgroundSelected
 
-        @drawCell(VALUE_POS_X + i, VALUE_POS_Y + j, valueBackgroundColor, currentValueString, @font.pen, valueColor)
+        @drawCell(PEN_POS_X + i, PEN_POS_Y + j, valueBackgroundColor, currentValueString, @font.pen, valueColor)
         @drawCell(PENCIL_POS_X + i, PENCIL_POS_Y + j, pencilBackgroundColor, currentValueString, @font.pen, pencilColor)
 
     valueBackgroundColor = null
     pencilBackgroundColor = null
     if @penValue == 10
         if @isPencil
-            pencilBackgroundColor = COLOR_BACKGROUND_SELECTED
+            pencilBackgroundColor = Color.backgroundSelected
         else
-            valueBackgroundColor = COLOR_BACKGROUND_SELECTED
+            valueBackgroundColor = Color.backgroundSelected
 
-    @drawCell(VALUE_CLEAR_POS_X, VALUE_CLEAR_POS_Y, valueBackgroundColor, "C", @font.pen, COLOR_ERROR)
-    @drawCell(PENCIL_CLEAR_POS_X, PENCIL_CLEAR_POS_Y, pencilBackgroundColor, "C", @font.pen, COLOR_ERROR)
+    @drawCell(PEN_CLEAR_POS_X, PEN_CLEAR_POS_Y, valueBackgroundColor, "C", @font.pen, Color.error)
+    @drawCell(PENCIL_CLEAR_POS_X, PENCIL_CLEAR_POS_Y, pencilBackgroundColor, "C", @font.pen, Color.error)
 
-    @drawCell(NEWGAME_POS_X, NEWGAME_POS_Y, null, "New", @font.newgame, COLOR_NEWGAME);
+    @drawCell(NEWGAME_POS_X, NEWGAME_POS_Y, null, "New", @font.newgame, Color.newGame)
 
     # Make the grids
     @drawGrid(0, 0, 9, @game.solved)
-    @drawGrid(VALUE_POS_X, VALUE_POS_Y, 3)
+    @drawGrid(PEN_POS_X, PEN_POS_Y, 3)
     @drawGrid(PENCIL_POS_X, PENCIL_POS_Y, 3)
-    @drawGrid(VALUE_CLEAR_POS_X, VALUE_CLEAR_POS_Y, 1)
+    @drawGrid(PEN_CLEAR_POS_X, PEN_CLEAR_POS_Y, 1)
     @drawGrid(PENCIL_CLEAR_POS_X, PENCIL_CLEAR_POS_Y, 1)
 
   # -------------------------------------------------------------------------------------
@@ -273,22 +274,22 @@ class SudokuRenderer
             when ActionType.SELECT
               if @penValue == 0
                 if (@highlightX == action.x) && (@highlightY == action.y)
-                  @highlightX = -1;
-                  @highlightY = -1;
+                  @highlightX = -1
+                  @highlightY = -1
                 else
-                  @highlightX = action.x;
-                  @highlightY = action.y;
+                  @highlightX = action.x
+                  @highlightY = action.y
               else
                 if @isPencil
                   if @penValue == 10
-                    @game.clearPencil(action.x, action.y);
+                    @game.clearPencil(action.x, action.y)
                   else
-                    @game.togglePencil(action.x, action.y, @penValue);
+                    @game.togglePencil(action.x, action.y, @penValue)
                 else
                   if @penValue == 10
-                    @game.setValue(action.x, action.y, 0);
+                    @game.setValue(action.x, action.y, 0)
                   else
-                    @game.setValue(action.x, action.y, @penValue);
+                    @game.setValue(action.x, action.y, @penValue)
 
             when ActionType.PENCIL
               @penValue = action.x
@@ -308,6 +309,15 @@ class SudokuRenderer
           @isPencil = false
 
         @draw()
+
+  # -------------------------------------------------------------------------------------
+  # Loading
+
+  redrawWhenFontLoads: ->
+    font = new FontFaceObserver("saxMono")
+    font.load().then =>
+      console.log('saxMono loaded, redrawing...')
+      @draw()
 
   # -------------------------------------------------------------------------------------
   # Helpers
