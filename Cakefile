@@ -33,9 +33,9 @@ buildGame = (callback) ->
           util.log "Game compilation finished."
           callback?()
         else
-          util.log "Game bundle write failed: " + err
+          util.log "\x07Game bundle write failed: " + err
     else
-      util.log "Game compilation failed: " + err
+      util.log "\x07Game compilation failed: " + err
 
 buildEverything = (callback) ->
   buildGame ->
@@ -67,13 +67,14 @@ buildAppCache = (callback) ->
   #     util.log "Appcache write failed: " + err
 
 watchEverything = ->
-  buildEverything ->
-    util.log "Watching for changes in src"
-    watch ['game/src','package.json'], (filename) ->
-      coffeeFileRegex = /\.coffee$/
-      if coffeeFileRegex.test(filename) || (filename == 'package.json')
-        util.log "Source code #{filename} changed, regenerating bundle..."
-        buildEverything()
+  util.log "Watching for changes in src"
+  watch ['game/src','package.json'], (filename) ->
+    coffeeFileRegex = /\.coffee$/
+    if coffeeFileRegex.test(filename) || (filename == 'package.json')
+      util.log "Source code #{filename} changed."
+      util.log "Regenerating bundle..."
+      buildEverything()
+  buildEverything()
 
 task 'build', 'build game', (options) ->
   buildEverything()
