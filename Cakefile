@@ -46,23 +46,25 @@ getVersion = ->
   return JSON.parse(fs.readFileSync("package.json", "utf8")).version
 
 buildAppCache = (callback) ->
-  gameVersion = getVersion()
-  manifest = """
-    CACHE MANIFEST
+  callback?()
 
-    # version #{gameVersion}
+  # gameVersion = getVersion()
+  # manifest = """
+  #   CACHE MANIFEST
 
-    CACHE:
-    index.html
-    lib/index.js
+  #   # version #{gameVersion}
 
-  """
-  fs.writeFile "game/game.appcache", manifest, (err) ->
-    if not err
-      util.log "Appcache generation finished. (#{gameVersion})"
-      callback?()
-    else
-      util.log "Appcache write failed: " + err
+  #   CACHE:
+  #   index.html
+  #   lib/index.js
+
+  # """
+  # fs.writeFile "game/game.appcache", manifest, (err) ->
+  #   if not err
+  #     util.log "Appcache generation finished. (#{gameVersion})"
+  #     callback?()
+  #   else
+  #     util.log "Appcache write failed: " + err
 
 watchEverything = ->
   buildEverything ->
