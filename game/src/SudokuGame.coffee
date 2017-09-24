@@ -70,6 +70,19 @@ class SudokuGame
 
     return @solved
 
+  done: ->
+    d = new Array(9).fill(false)
+    counts = new Array(9).fill(0)
+    for j in [0...9]
+      for i in [0...9]
+        if @grid[i][j].value != 0
+          counts[@grid[i][j].value-1] += 1
+
+    for i in [0...9]
+      if counts[i] == 9
+        d[i] = true
+    return d
+
   pencilString: (x, y) ->
     cell = @grid[x][y]
     s = ""

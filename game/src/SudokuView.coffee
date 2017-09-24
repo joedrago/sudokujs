@@ -178,7 +178,7 @@ class SudokuView
 
         @drawCell(i, j, backgroundColor, text, font, textColor)
 
-    done = [false, false, false, false, false, false, false, false, false]
+    done = @game.done()
     for j in [0...3]
       for i in [0...3]
         currentValue = (j * 3) + i + 1
