@@ -114,7 +114,7 @@ class SudokuGame
 
     generator = new SudokuGenerator()
     newGrid = generator.generate(difficulty)
-    console.log "newGrid", newGrid
+    # console.log "newGrid", newGrid
     for j in [0...9]
       for i in [0...9]
         if newGrid[i][j] != 0
@@ -130,7 +130,7 @@ class SudokuGame
     if jsonString == null
       return false
 
-    console.log jsonString
+    # console.log jsonString
     gameData = JSON.parse(jsonString)
     console.log "found gameData", gameData
 

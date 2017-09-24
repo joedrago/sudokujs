@@ -22,7 +22,7 @@
 <script>
 // This awful code ensures Android canvases are pixel-for-pixel.
 if((navigator.userAgent.toLowerCase().indexOf('android') > -1) && (window.devicePixelRatio > 0)) {
-    var viewportScale = 1 / window.devicePixelRatio;
+    var viewportScale = 1;// / window.devicePixelRatio;
     document.getElementById('metaViewport').setAttribute('content', 'width=device-width, initial-scale='+viewportScale+', user-scalable=no');
 }
 </script>

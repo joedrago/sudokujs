@@ -1,4 +1,4 @@
-FontFaceObserver = require 'FontFaceObserver'
+SudokuGenerator = require './SudokuGenerator'
 SudokuGame = require './SudokuGame'
 
 PEN_POS_X = 1
@@ -11,8 +11,11 @@ PENCIL_POS_Y = 10
 PENCIL_CLEAR_POS_X = 6
 PENCIL_CLEAR_POS_Y = 13
 
-NEWGAME_POS_X = 4
-NEWGAME_POS_Y = 13
+MENU_POS_X = 4
+MENU_POS_Y = 13
+
+MODE_POS_X = 4
+MODE_POS_Y = 9
 
 Color =
   value: "black"
@@ -26,6 +29,9 @@ Color =
   backgroundLockedSelected: "#eeeedd"
   backgroundConflicted: "#ffffdd"
   backgroundError: "#ffdddd"
+  modeSelect: "#777744"
+  modePen: "#000000"
+  modePencil: "#0000ff"
 
 ActionType =
   SELECT: 0
@@ -33,12 +39,11 @@ ActionType =
   VALUE: 2
   NEWGAME: 3
 
-class SudokuRenderer
+class SudokuView
   # -------------------------------------------------------------------------------------
   # Init
 
-  constructor: (@canvas) ->
-    @ctx = @canvas.getContext("2d")
+  constructor: (@app, @canvas) ->
     console.log "canvas size #{@canvas.width}x#{@canvas.height}"
 
     widthBasedCellSize = @canvas.width / 9
@@ -55,21 +60,10 @@ class SudokuRenderer
     fontPixelsL = Math.floor(@cellSize * 0.8)
 
     # init fonts
-    @font =
-      pencil:
-        style: "#{fontPixelsS}px saxMono, monospace"
-        height: 0
-      newgame:
-        style: "#{fontPixelsM}px saxMono, monospace"
-        height: 0
-      pen:
-        style: "#{fontPixelsL}px saxMono, monospace"
-        height: 0
-    for fontName, f of @font
-      @ctx.font = f.style
-      @ctx.fillStyle = "black"
-      @ctx.textAlign = "center"
-      f.height = @ctx.measureText("m").width * 1.1 # best hack ever
+    @fonts =
+      pencil:  @app.registerFont("pencil",  "#{fontPixelsS}px saxMono, monospace")
+      newgame: @app.registerFont("newgame", "#{fontPixelsM}px saxMono, monospace")
+      pen:     @app.registerFont("pen",     "#{fontPixelsL}px saxMono, monospace")
 
     @initActions()
 
@@ -81,8 +75,6 @@ class SudokuRenderer
     @highlightY = -1
 
     @draw()
-
-    @redrawWhenFontLoads()
 
   initActions: ->
     @actions = new Array(9 * 15).fill(null)
@@ -111,7 +103,7 @@ class SudokuRenderer
     @actions[index] = { type: ActionType.PENCIL, x: 10, y: 0 }
 
     # New Game button
-    index = (NEWGAME_POS_Y * 9) + NEWGAME_POS_X
+    index = (MENU_POS_Y * 9) + MENU_POS_X
     @actions[index] = { type: ActionType.NEWGAME, x: 0, y: 0 }
 
     return
@@ -119,39 +111,12 @@ class SudokuRenderer
   # -------------------------------------------------------------------------------------
   # Rendering
 
-  drawFill: (x, y, w, h, color) ->
-    @ctx.beginPath()
-    @ctx.rect(x, y, w, h)
-    @ctx.fillStyle = color
-    @ctx.fill()
-
-  drawRect: (x, y, w, h, color, lineWidth = 1) ->
-    @ctx.beginPath()
-    @ctx.strokeStyle = color
-    @ctx.lineWidth = lineWidth
-    @ctx.rect(x, y, w, h)
-    @ctx.stroke()
-
-  drawLine: (x1, y1, x2, y2, color = "black", lineWidth = 1) ->
-    @ctx.beginPath()
-    @ctx.strokeStyle = color
-    @ctx.lineWidth = lineWidth
-    @ctx.moveTo(x1, y1)
-    @ctx.lineTo(x2, y2)
-    @ctx.stroke()
-
-  drawTextCentered: (text, cx, cy, font, color) ->
-    @ctx.font = font.style
-    @ctx.fillStyle = color
-    @ctx.textAlign = "center"
-    @ctx.fillText(text, cx, cy + (font.height / 2))
-
   drawCell: (x, y, backgroundColor, s, font, color) ->
     px = x * @cellSize
     py = y * @cellSize
     if backgroundColor != null
-      @drawFill(px, py, @cellSize, @cellSize, backgroundColor)
-    @drawTextCentered(s, px + (@cellSize / 2), py + (@cellSize / 2), font, color)
+      @app.drawFill(px, py, @cellSize, @cellSize, backgroundColor)
+    @app.drawTextCentered(s, px + (@cellSize / 2), py + (@cellSize / 2), font, color)
 
   drawGrid: (originX, originY, size, solved = false) ->
     for i in [0..size]
@@ -161,32 +126,32 @@ class SudokuRenderer
         lineWidth = @lineWidthThick
 
       # Horizontal lines
-      @drawLine(@cellSize * (originX + 0), @cellSize * (originY + i), @cellSize * (originX + size), @cellSize * (originY + i), color, lineWidth)
+      @app.drawLine(@cellSize * (originX + 0), @cellSize * (originY + i), @cellSize * (originX + size), @cellSize * (originY + i), color, lineWidth)
 
       # Vertical lines
-      @drawLine(@cellSize * (originX + i), @cellSize * (originY + 0), @cellSize * (originX + i), @cellSize * (originY + size), color, lineWidth)
+      @app.drawLine(@cellSize * (originX + i), @cellSize * (originY + 0), @cellSize * (originX + i), @cellSize * (originY + size), color, lineWidth)
 
     return
 
   draw: ->
     console.log "draw()"
 
-    # Clear screen
-    @drawFill(0, 0, @canvas.width, @canvas.height, "black")
+    # Clear screen to black
+    @app.drawFill(0, 0, @canvas.width, @canvas.height, "black")
 
     # Make white phone-shaped background
-    @drawFill(0, 0, @cellSize * 9, @canvas.height, "white")
+    @app.drawFill(0, 0, @cellSize * 9, @canvas.height, "white")
 
     for j in [0...9]
       for i in [0...9]
         cell = @game.grid[i][j]
 
         backgroundColor = null
-        font = @font.pen
+        font = @fonts.pen
         textColor = Color.value
         text = ""
         if cell.value == 0
-          font = @font.pencil
+          font = @fonts.pencil
           textColor = Color.pencil
           text = @game.pencilString(i, j)
         else
@@ -232,8 +197,8 @@ class SudokuRenderer
           else
             valueBackgroundColor = Color.backgroundSelected
 
-        @drawCell(PEN_POS_X + i, PEN_POS_Y + j, valueBackgroundColor, currentValueString, @font.pen, valueColor)
-        @drawCell(PENCIL_POS_X + i, PENCIL_POS_Y + j, pencilBackgroundColor, currentValueString, @font.pen, pencilColor)
+        @drawCell(PEN_POS_X + i, PEN_POS_Y + j, valueBackgroundColor, currentValueString, @fonts.pen, valueColor)
+        @drawCell(PENCIL_POS_X + i, PENCIL_POS_Y + j, pencilBackgroundColor, currentValueString, @fonts.pen, pencilColor)
 
     valueBackgroundColor = null
     pencilBackgroundColor = null
@@ -243,10 +208,18 @@ class SudokuRenderer
         else
             valueBackgroundColor = Color.backgroundSelected
 
-    @drawCell(PEN_CLEAR_POS_X, PEN_CLEAR_POS_Y, valueBackgroundColor, "C", @font.pen, Color.error)
-    @drawCell(PENCIL_CLEAR_POS_X, PENCIL_CLEAR_POS_Y, pencilBackgroundColor, "C", @font.pen, Color.error)
+    @drawCell(PEN_CLEAR_POS_X, PEN_CLEAR_POS_Y, valueBackgroundColor, "C", @fonts.pen, Color.error)
+    @drawCell(PENCIL_CLEAR_POS_X, PENCIL_CLEAR_POS_Y, pencilBackgroundColor, "C", @fonts.pen, Color.error)
 
-    @drawCell(NEWGAME_POS_X, NEWGAME_POS_Y, null, "New", @font.newgame, Color.newGame)
+    if @penValue == 0
+      modeColor = Color.modeSelect
+      modeText = "Highlighting"
+    else
+      modeColor = if @isPencil then Color.modePencil else Color.modePen
+      modeText = if @isPencil then "Pencil" else "Pen"
+    @drawCell(MODE_POS_X, MODE_POS_Y, null, modeText, @fonts.newgame, modeColor)
+
+    @drawCell(MENU_POS_X, MENU_POS_Y, null, "Menu", @fonts.newgame, Color.newGame)
 
     # Make the grids
     @drawGrid(0, 0, 9, @game.solved)
@@ -258,7 +231,9 @@ class SudokuRenderer
   # -------------------------------------------------------------------------------------
   # Input
 
-  offerNewGame: ->
+  newGame: (difficulty) ->
+    console.log "SudokuView.newGame(#{difficulty})"
+    @game.newGame(difficulty)
 
   click: (x, y) ->
     # console.log "click #{x}, #{y}"
@@ -292,15 +267,22 @@ class SudokuRenderer
                     @game.setValue(action.x, action.y, @penValue)
 
             when ActionType.PENCIL
-              @penValue = action.x
               @isPencil = true
+              if @penValue == action.x
+                @penValue = 0
+              else
+                @penValue = action.x
 
             when ActionType.VALUE
-              @penValue = action.x
               @isPencil = false
+              if @penValue == action.x
+                @penValue = 0
+              else
+                @penValue = action.x
 
             when ActionType.NEWGAME
-              @offerNewGame()
+              @app.switchView("menu")
+              return
         else
           # no action
           @highlightX = -1
@@ -309,15 +291,6 @@ class SudokuRenderer
           @isPencil = false
 
         @draw()
-
-  # -------------------------------------------------------------------------------------
-  # Loading
-
-  redrawWhenFontLoads: ->
-    font = new FontFaceObserver("saxMono")
-    font.load().then =>
-      console.log('saxMono loaded, redrawing...')
-      @draw()
 
   # -------------------------------------------------------------------------------------
   # Helpers
@@ -339,4 +312,4 @@ class SudokuRenderer
 
   # -------------------------------------------------------------------------------------
 
-module.exports = SudokuRenderer
+module.exports = SudokuView

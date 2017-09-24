@@ -14,7 +14,7 @@ class SudokuGenerator
       for i in [0...9]
         grid[i][j] = 0
 
-    grid[4][2] = 5
+    grid[4][2] = difficulty + 5
     return grid
 
 module.exports = SudokuGenerator

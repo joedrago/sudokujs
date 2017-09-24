@@ -1,4 +1,4 @@
-SudokuRenderer = require './SudokuRenderer'
+App = require './App'
 
 init = ->
   console.log "init"
@@ -8,18 +8,18 @@ init = ->
   document.body.insertBefore(canvas, document.body.childNodes[0])
   canvasRect = canvas.getBoundingClientRect()
 
-  window.game = new SudokuRenderer(canvas)
+  window.app = new App(canvas)
 
   # canvas.addEventListener "touchstart", (e) ->
   #   console.log Object.keys(e.touches[0])
   #   x = e.touches[0].clientX - canvasRect.left
   #   y = e.touches[0].clientY - canvasRect.top
-  #   window.game.click(x, y)
+  #   window.app.click(x, y)
 
   canvas.addEventListener "mousedown", (e) ->
     x = e.clientX - canvasRect.left
     y = e.clientY - canvasRect.top
-    window.game.click(x, y)
+    window.app.click(x, y)
 
 window.addEventListener('load', (e) ->
     init()
