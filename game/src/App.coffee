@@ -12,7 +12,7 @@ class App
     @views =
       menu: new MenuView(this, @canvas)
       sudoku: new SudokuView(this, @canvas)
-    @switchView("menu")
+    @switchView("sudoku")
 
   measureFonts: ->
     for fontName, f of @fonts

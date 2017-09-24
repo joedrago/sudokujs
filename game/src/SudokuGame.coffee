@@ -120,7 +120,8 @@ class SudokuGame
         if newGrid[i][j] != 0
           @grid[i][j].value = newGrid[i][j]
           @grid[i][j].locked = true
-    return
+    @updateCells()
+    @save()
 
   load: ->
     if not localStorage
