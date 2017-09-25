@@ -267,17 +267,17 @@ class SudokuView
                     @game.setValue(action.x, action.y, @penValue)
 
             when ActionType.PENCIL
-              @isPencil = true
-              if @penValue == action.x
+              if @isPencil and  (@penValue == action.x)
                 @penValue = 0
               else
+                @isPencil = true
                 @penValue = action.x
 
             when ActionType.VALUE
-              @isPencil = false
-              if @penValue == action.x
+              if not @isPencil and (@penValue == action.x)
                 @penValue = 0
               else
+                @isPencil = false
                 @penValue = action.x
 
             when ActionType.NEWGAME
