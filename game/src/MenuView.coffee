@@ -4,27 +4,33 @@ class MenuView
   constructor: (@app, @canvas) ->
     @buttons =
       newEasy:
-        y: 0.35
+        y: 0.32
         text: "New Game: Easy"
         bgColor: "#337733"
         textColor: "#ffffff"
         click: @newEasy.bind(this)
       newMedium:
-        y: 0.47
+        y: 0.44
         text: "New Game: Medium"
         bgColor: "#777733"
         textColor: "#ffffff"
         click: @newMedium.bind(this)
       newHard:
-        y: 0.59
+        y: 0.56
         text: "New Game: Hard"
         bgColor: "#773333"
         textColor: "#ffffff"
         click: @newHard.bind(this)
+      clear:
+        y: 0.68
+        text: "Clear Puzzle"
+        bgColor: "#333366"
+        textColor: "#ffffff"
+        click: @clear.bind(this)
       resume:
         y: 0.85
         text: "Resume"
-        bgColor: "#777777"
+        bgColor: "#773333"
         textColor: "#ffffff"
         click: @resume.bind(this)
 
@@ -77,6 +83,9 @@ class MenuView
 
   newHard: ->
     @app.newGame(SudokuGenerator.difficulty.hard)
+
+  clear: ->
+    @app.clear()
 
   resume: ->
     @app.switchView("sudoku")

@@ -114,6 +114,21 @@ class SudokuGame
     @updateCells()
     @save()
 
+  clear: ->
+    console.log "clear()"
+    for j in [0...9]
+      for i in [0...9]
+        cell = @grid[i][j]
+        if not cell.locked
+          cell.value = 0
+        cell.error = false
+        for k in [0...9]
+          cell.pencil[k] = false
+    @highlightX = -1
+    @highlightY = -1
+    @updateCells()
+    @save()
+
   newGame: (difficulty) ->
     console.log "newGame(#{difficulty})"
     for j in [0...9]

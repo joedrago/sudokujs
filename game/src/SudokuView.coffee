@@ -235,6 +235,9 @@ class SudokuView
     console.log "SudokuView.newGame(#{difficulty})"
     @game.newGame(difficulty)
 
+  clear: ->
+    @game.clear()
+
   click: (x, y) ->
     # console.log "click #{x}, #{y}"
     x = Math.floor(x / @cellSize)

@@ -52,6 +52,10 @@ class App
     @views.sudoku.newGame(difficulty)
     @switchView("sudoku")
 
+  clear: (difficulty) ->
+    @views.sudoku.clear()
+    @switchView("sudoku")
+
   draw: ->
     @view.draw()
 
