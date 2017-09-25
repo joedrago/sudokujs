@@ -65,8 +65,8 @@ class SudokuGame
         if @grid[i][j].value == 0
           @solved = false
 
-    if @solved
-      console.log "solved #{@solved}"
+    # if @solved
+    #   console.log "solved #{@solved}"
 
     return @solved
 
@@ -146,7 +146,7 @@ class SudokuGame
 
     # console.log jsonString
     gameData = JSON.parse(jsonString)
-    console.log "found gameData", gameData
+    # console.log "found gameData", gameData
 
     for j in [0...9]
       for i in [0...9]
