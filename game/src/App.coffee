@@ -2,12 +2,16 @@ FontFaceObserver = require 'FontFaceObserver'
 
 MenuView = require './MenuView'
 SudokuView = require './SudokuView'
+version = require './version'
 
 class App
   constructor: (@canvas) ->
     @ctx = @canvas.getContext("2d")
     @loadFont("saxMono")
     @fonts = {}
+
+    @versionFontHeight = Math.floor(@canvas.height * 0.02)
+    @versionFont = @registerFont("version", "#{@versionFontHeight}px saxMono, monospace")
 
     @views =
       menu: new MenuView(this, @canvas)
@@ -90,6 +94,13 @@ class App
     @ctx.fillStyle = color
     @ctx.textAlign = "center"
     @ctx.fillText(text, cx, cy + (font.height / 2))
+
+  drawVersion: (color = "white") ->
+    @ctx = @canvas.getContext("2d")
+    @ctx.font = @versionFont.style
+    @ctx.fillStyle = color
+    @ctx.textAlign = "right"
+    @ctx.fillText("v#{version}", @canvas.width - (@versionFont.height / 2), @canvas.height - (@versionFont.height / 2))
 
 CanvasRenderingContext2D.prototype.roundRect = (x, y, w, h, r) ->
   if (w < 2 * r) then r = w / 2

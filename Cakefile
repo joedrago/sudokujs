@@ -37,10 +37,23 @@ buildGame = (callback) ->
     else
       util.log "\x07Game compilation failed: " + err
 
+buildVersion = (callback) ->
+  gameVersion = getVersion()
+  source = """
+    module.exports = "#{gameVersion}"
+  """
+  versionFilename = "./game/src/version.coffee"
+  sourceOnDisk = fs.readFileSync(versionFilename, "utf8")
+  if source != sourceOnDisk
+    fs.writeFileSync(versionFilename, source)
+    util.log "Updated version to #{gameVersion}"
+  callback?()
+
 buildEverything = (callback) ->
-  buildGame ->
-    buildAppCache ->
-      callback?()
+  buildVersion ->
+    buildGame ->
+      buildAppCache ->
+        callback?()
 
 getVersion = ->
   return JSON.parse(fs.readFileSync("package.json", "utf8")).version

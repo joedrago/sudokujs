@@ -47,7 +47,7 @@ class MenuView
     @app.drawFill(0, 0, @canvas.width, @canvas.height, "#333333")
 
     x = @canvas.width / 2
-    shadowOffset = @canvas.height * 0.02
+    shadowOffset = @canvas.height * 0.01
 
     y1 = @canvas.height * 0.1
     y2 = @canvas.height * 0.2
@@ -59,6 +59,8 @@ class MenuView
     for buttonName, button of @buttons
       @app.drawRoundedRect(button.x, button.y, button.w, button.h, button.h * 0.2, button.bgColor, "#444444")
       @app.drawTextCentered(button.text, button.x + (button.w / 2), button.y + (button.h / 2), @buttonFont, button.textColor)
+
+    @app.drawVersion()
 
   click: (x, y) ->
     for buttonName, button of @buttons
