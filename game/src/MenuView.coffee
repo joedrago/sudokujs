@@ -107,6 +107,12 @@ class MenuView
     @app.switchView("sudoku")
 
   export: ->
+    if navigator.share != undefined
+      navigator.share {
+        title: "Sudoku Shared Game"
+        text: @app.export()
+      }
+      return
     window.prompt("Copy this and paste to a friend:", @app.export())
 
   import: ->
