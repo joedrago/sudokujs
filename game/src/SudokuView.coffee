@@ -235,8 +235,14 @@ class SudokuView
     console.log "SudokuView.newGame(#{difficulty})"
     @game.newGame(difficulty)
 
-  clear: ->
-    @game.clear()
+  reset: ->
+    @game.reset()
+
+  import: (importString) ->
+    return @game.import(importString)
+
+  export: ->
+    return @game.export()
 
   click: (x, y) ->
     # console.log "click #{x}, #{y}"

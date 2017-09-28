@@ -2,6 +2,12 @@ SudokuGenerator = require './SudokuGenerator'
 
 class SudokuGame
   constructor: ->
+    @clear()
+    if not @load()
+      @newGame(SudokuGenerator.difficulty.easy)
+    return
+
+  clear: ->
     @grid = new Array(9).fill(null)
     for i in [0...9]
       @grid[i] = new Array(9).fill(null)
@@ -14,9 +20,40 @@ class SudokuGame
           pencil: new Array(9).fill(false)
 
     @solved = false
-    if not @load()
-      @newGame(SudokuGenerator.difficulty.easy)
-    return
+
+  export: ->
+    exportString = "SD"
+    for j in [0...9]
+      for i in [0...9]
+        if @grid[i][j].locked
+          exportString += "#{@grid[i][j].value}"
+        else
+          exportString += "0"
+    return exportString
+
+  import: (importString) ->
+    if importString.indexOf("SD") != 0
+      return false
+    importString = importString.substr(2)
+    importString = importString.replace(/[^0-9]/g, "")
+    if importString.length != 81
+      return false
+
+    @clear()
+
+    index = 0
+    zeroCharCode = "0".charCodeAt(0)
+    for j in [0...9]
+      for i in [0...9]
+        v = importString.charCodeAt(index) - zeroCharCode
+        index += 1
+        if v > 0
+          @grid[i][j].locked = true
+          @grid[i][j].value = v
+
+    @updateCells()
+    @save()
+    return true
 
   updateCell: (x, y) ->
     cell = @grid[x][y]
@@ -114,8 +151,8 @@ class SudokuGame
     @updateCells()
     @save()
 
-  clear: ->
-    console.log "clear()"
+  reset: ->
+    console.log "reset()"
     for j in [0...9]
       for i in [0...9]
         cell = @grid[i][j]

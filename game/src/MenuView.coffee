@@ -1,42 +1,58 @@
 SudokuGenerator = require './SudokuGenerator'
 
+BUTTON_HEIGHT = 0.08
+
 class MenuView
   constructor: (@app, @canvas) ->
     @buttons =
       newEasy:
-        y: 0.32
+        y: 0.22
         text: "New Game: Easy"
         bgColor: "#337733"
         textColor: "#ffffff"
         click: @newEasy.bind(this)
       newMedium:
-        y: 0.44
+        y: 0.31
         text: "New Game: Medium"
         bgColor: "#777733"
         textColor: "#ffffff"
         click: @newMedium.bind(this)
       newHard:
-        y: 0.56
+        y: 0.40
         text: "New Game: Hard"
         bgColor: "#773333"
         textColor: "#ffffff"
         click: @newHard.bind(this)
-      clear:
-        y: 0.68
-        text: "Clear Puzzle"
-        bgColor: "#333366"
+      reset:
+        y: 0.49
+        text: "Reset Puzzle"
+        bgColor: "#773377"
         textColor: "#ffffff"
-        click: @clear.bind(this)
+        click: @reset.bind(this)
+
+      import:
+        y: 0.64
+        text: "Load Puzzle"
+        bgColor: "#336666"
+        textColor: "#ffffff"
+        click: @import.bind(this)
+      export:
+        y: 0.73
+        text: "Share Puzzle"
+        bgColor: "#336666"
+        textColor: "#ffffff"
+        click: @export.bind(this)
+
       resume:
-        y: 0.85
+        y: 0.87
         text: "Resume"
-        bgColor: "#773333"
+        bgColor: "#777777"
         textColor: "#ffffff"
         click: @resume.bind(this)
 
     buttonWidth = @canvas.width * 0.8
-    @buttonHeight = @canvas.height * 0.1
-    buttonX = @canvas.width * 0.1
+    @buttonHeight = @canvas.height * BUTTON_HEIGHT
+    buttonX = @canvas.width * BUTTON_HEIGHT
     for buttonName, button of @buttons
       button.x = buttonX
       button.y = @canvas.height * button.y
@@ -55,8 +71,8 @@ class MenuView
     x = @canvas.width / 2
     shadowOffset = @canvas.height * 0.01
 
-    y1 = @canvas.height * 0.1
-    y2 = @canvas.height * 0.2
+    y1 = @canvas.height * 0.05
+    y2 = @canvas.height * 0.15
     @app.drawTextCentered("Bad Guy", x + shadowOffset, y1 + shadowOffset, @titleFont, "#000000")
     @app.drawTextCentered("Sudoku", x + shadowOffset, y2 + shadowOffset, @titleFont, "#000000")
     @app.drawTextCentered("Bad Guy", x, y1, @titleFont, "#ffffff")
@@ -84,10 +100,20 @@ class MenuView
   newHard: ->
     @app.newGame(SudokuGenerator.difficulty.hard)
 
-  clear: ->
-    @app.clear()
+  reset: ->
+    @app.reset()
 
   resume: ->
     @app.switchView("sudoku")
+
+  export: ->
+    window.prompt("Copy this and paste to a friend:", @app.export())
+
+  import: ->
+    importString = window.prompt("Paste an exported game here:", "")
+    if importString == null
+      return
+    if @app.import(importString)
+      @app.switchView("sudoku")
 
 module.exports = MenuView
