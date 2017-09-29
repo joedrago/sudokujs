@@ -150,7 +150,7 @@ class SudokuGenerator
       else 40 # easy / unknown
 
     best = null
-    for attempt in [0...3]
+    for attempt in [0...2]
       generated = @generateInternal(amountToRemove)
       if generated.removed == amountToRemove
         console.log "Removed exact amount #{amountToRemove}, stopping"
