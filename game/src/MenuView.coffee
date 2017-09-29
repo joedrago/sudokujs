@@ -100,7 +100,7 @@ class MenuView
       @app.drawRoundedRect(button.x, button.y, button.w, button.h, button.h * 0.3, button.bgColor, "#999999")
       @app.drawTextCentered(button.text, button.x + (button.w / 2), button.y + (button.h / 2), @buttonFont, button.textColor)
 
-    @app.drawLowerLeft("#{@app.holeCount()}/60")
+    @app.drawLowerLeft("#{@app.holeCount()}/81")
     @app.drawVersion()
 
   click: (x, y) ->
