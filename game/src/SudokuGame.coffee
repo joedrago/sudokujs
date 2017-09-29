@@ -21,6 +21,14 @@ class SudokuGame
 
     @solved = false
 
+  holeCount: ->
+    count = 0
+    for j in [0...9]
+      for i in [0...9]
+        if not @grid[i][j].locked
+          count += 1
+    return count
+
   export: ->
     exportString = "SD"
     for j in [0...9]

@@ -33,6 +33,7 @@ class SudokuGenerator
     easy: 1
     medium: 2
     hard: 3
+    extreme: 4
 
   constructor: ->
 
@@ -143,8 +144,9 @@ class SudokuGenerator
 
   generate: (difficulty) ->
     amountToRemove = switch difficulty
-      when SudokuGenerator.difficulty.hard   then 60
-      when SudokuGenerator.difficulty.medium then 50
+      when SudokuGenerator.difficulty.extreme then 60
+      when SudokuGenerator.difficulty.hard    then 52
+      when SudokuGenerator.difficulty.medium  then 46
       else 40 # easy / unknown
 
     best = null

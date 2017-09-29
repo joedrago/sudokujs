@@ -1,50 +1,67 @@
 SudokuGenerator = require './SudokuGenerator'
 
-BUTTON_HEIGHT = 0.08
+BUTTON_HEIGHT = 0.06
+FIRST_BUTTON_Y = 0.22
+BUTTON_SPACING = 0.08
+BUTTON_SEPARATOR = 0.03
+
+buttonPos = (index) ->
+  y = FIRST_BUTTON_Y + (BUTTON_SPACING * index)
+  if index > 3
+    y += BUTTON_SEPARATOR
+  if index > 4
+    y += BUTTON_SEPARATOR
+  if index > 6
+    y += BUTTON_SEPARATOR
+  return y
 
 class MenuView
   constructor: (@app, @canvas) ->
     @buttons =
       newEasy:
-        y: 0.22
+        y: buttonPos(0)
         text: "New Game: Easy"
         bgColor: "#337733"
         textColor: "#ffffff"
         click: @newEasy.bind(this)
       newMedium:
-        y: 0.31
+        y: buttonPos(1)
         text: "New Game: Medium"
         bgColor: "#777733"
         textColor: "#ffffff"
         click: @newMedium.bind(this)
       newHard:
-        y: 0.40
+        y: buttonPos(2)
         text: "New Game: Hard"
         bgColor: "#773333"
         textColor: "#ffffff"
         click: @newHard.bind(this)
+      newExtreme:
+        y: buttonPos(3)
+        text: "New Game: Extreme"
+        bgColor: "#771111"
+        textColor: "#ffffff"
+        click: @newExtreme.bind(this)
       reset:
-        y: 0.49
+        y: buttonPos(4)
         text: "Reset Puzzle"
         bgColor: "#773377"
         textColor: "#ffffff"
         click: @reset.bind(this)
-
       import:
-        y: 0.64
+        y: buttonPos(5)
         text: "Load Puzzle"
         bgColor: "#336666"
         textColor: "#ffffff"
         click: @import.bind(this)
       export:
-        y: 0.73
+        y: buttonPos(6)
         text: "Share Puzzle"
         bgColor: "#336666"
         textColor: "#ffffff"
         click: @export.bind(this)
-
       resume:
-        y: 0.87
+        y: buttonPos(7)
         text: "Resume"
         bgColor: "#777777"
         textColor: "#ffffff"
@@ -52,7 +69,7 @@ class MenuView
 
     buttonWidth = @canvas.width * 0.8
     @buttonHeight = @canvas.height * BUTTON_HEIGHT
-    buttonX = @canvas.width * BUTTON_HEIGHT
+    buttonX = (@canvas.width - buttonWidth) / 2
     for buttonName, button of @buttons
       button.x = buttonX
       button.y = @canvas.height * button.y
@@ -79,9 +96,11 @@ class MenuView
     @app.drawTextCentered("Sudoku", x, y2, @titleFont, "#ffffff")
 
     for buttonName, button of @buttons
-      @app.drawRoundedRect(button.x, button.y, button.w, button.h, button.h * 0.2, button.bgColor, "#444444")
+      @app.drawRoundedRect(button.x + shadowOffset, button.y + shadowOffset, button.w, button.h, button.h * 0.3, "black", "black")
+      @app.drawRoundedRect(button.x, button.y, button.w, button.h, button.h * 0.3, button.bgColor, "#999999")
       @app.drawTextCentered(button.text, button.x + (button.w / 2), button.y + (button.h / 2), @buttonFont, button.textColor)
 
+    @app.drawLowerLeft("#{@app.holeCount()}/60")
     @app.drawVersion()
 
   click: (x, y) ->
@@ -99,6 +118,9 @@ class MenuView
 
   newHard: ->
     @app.newGame(SudokuGenerator.difficulty.hard)
+
+  newExtreme: ->
+    @app.newGame(SudokuGenerator.difficulty.extreme)
 
   reset: ->
     @app.reset()

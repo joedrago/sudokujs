@@ -13,6 +13,9 @@ class App
     @versionFontHeight = Math.floor(@canvas.height * 0.02)
     @versionFont = @registerFont("version", "#{@versionFontHeight}px saxMono, monospace")
 
+    @generatingFontHeight = Math.floor(@canvas.height * 0.04)
+    @generatingFont = @registerFont("generating", "#{@generatingFontHeight}px saxMono, monospace")
+
     @views =
       menu: new MenuView(this, @canvas)
       sudoku: new SudokuView(this, @canvas)
@@ -49,8 +52,14 @@ class App
 
   newGame: (difficulty) ->
     # console.log "app.newGame(#{difficulty})"
-    @views.sudoku.newGame(difficulty)
-    @switchView("sudoku")
+
+    @drawFill(0, 0, @canvas.width, @canvas.height, "#444444")
+    @drawTextCentered("Generating, please wait...", @canvas.width / 2, @canvas.height / 2, @generatingFont, "#ffffff")
+
+    window.setTimeout =>
+      @views.sudoku.newGame(difficulty)
+      @switchView("sudoku")
+    , 0
 
   reset: ->
     @views.sudoku.reset()
@@ -61,6 +70,9 @@ class App
 
   export: ->
     return @views.sudoku.export()
+
+  holeCount: ->
+    return @views.sudoku.holeCount()
 
   draw: ->
     @view.draw()
@@ -104,6 +116,13 @@ class App
     @ctx.fillStyle = color
     @ctx.textAlign = "center"
     @ctx.fillText(text, cx, cy + (font.height / 2))
+
+  drawLowerLeft: (text, color = "white") ->
+    @ctx = @canvas.getContext("2d")
+    @ctx.font = @versionFont.style
+    @ctx.fillStyle = color
+    @ctx.textAlign = "left"
+    @ctx.fillText(text, 0, @canvas.height - (@versionFont.height / 2))
 
   drawVersion: (color = "white") ->
     @ctx = @canvas.getContext("2d")

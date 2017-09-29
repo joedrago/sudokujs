@@ -244,6 +244,9 @@ class SudokuView
   export: ->
     return @game.export()
 
+  holeCount: ->
+    return @game.holeCount()
+
   click: (x, y) ->
     # console.log "click #{x}, #{y}"
     x = Math.floor(x / @cellSize)
