@@ -37,6 +37,32 @@ buildGame = (callback) ->
     else
       util.log "\x07Game compilation failed: " + err
 
+buildSolver = (callback) ->
+  # equal of command line $ "browserify --debug -t coffeeify ./src/main.coffee > bundle.js "
+  productionBuild = (process.env.NODE_ENV == 'production')
+  opts = {
+    extensions: ['.coffee']
+    detectGlobals: false
+    insertGlobals: false
+  }
+  if not productionBuild
+    opts.debug = true
+  b = browserify opts
+  b.add './game/src/solver.coffee'
+  b.transform coffeeify
+  if productionBuild
+    b.transform { global: true, ignore: ['**/main.*'] }, uglifyify
+  b.bundle (err, result) ->
+    if not err
+      fs.writeFile "solver.js", result, (err) ->
+        if not err
+          util.log "Solver compilation finished."
+          callback?()
+        else
+          util.log "\x07Solver bundle write failed: " + err
+    else
+      util.log "\x07Solver compilation failed: " + err
+
 buildVersion = (callback) ->
   gameVersion = getVersion()
   source = """
@@ -52,8 +78,9 @@ buildVersion = (callback) ->
 buildEverything = (callback) ->
   buildVersion ->
     buildGame ->
-      buildAppCache ->
-        callback?()
+      buildSolver ->
+        buildAppCache ->
+          callback?()
 
 getVersion = ->
   return JSON.parse(fs.readFileSync("package.json", "utf8")).version

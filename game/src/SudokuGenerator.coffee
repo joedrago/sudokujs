@@ -166,5 +166,43 @@ class SudokuGenerator
     console.log "giving user board: #{best.removed} / #{amountToRemove}"
     return @boardToGrid(best.board)
 
-module.exports = SudokuGenerator
+  solveString: (importString) ->
+    if importString.indexOf("SD") != 0
+      return false
+    importString = importString.substr(2)
+    importString = importString.replace(/[^0-9]/g, "")
+    if importString.length != 81
+      return false
 
+    board = new Board()
+
+    index = 0
+    zeroCharCode = "0".charCodeAt(0)
+    for j in [0...9]
+      for i in [0...9]
+        v = importString.charCodeAt(index) - zeroCharCode
+        index += 1
+        if v > 0
+          board.locked[j][i] = true
+          board.grid[j][i] = v
+
+    solved = @solve(board)
+    if solved == null
+      console.log "ERROR: Can't be solved."
+      return false
+
+    for x in [0...50] # 50 is excessive
+      anotherSolve = @solve(board)
+      if not anotherSolve.matches(solved)
+        console.log "ERROR: Board solve not unique."
+        return false
+
+    answerString = ""
+    for j in [0...9]
+      for i in [0...9]
+        answerString += "#{solved.grid[j][i]} "
+      answerString += "\n"
+
+    return answerString
+
+module.exports = SudokuGenerator
