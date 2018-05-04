@@ -78,22 +78,26 @@ class MenuView
 
     buttonFontHeight = Math.floor(@buttonHeight * 0.4)
     @buttonFont = @app.registerFont("button", "#{buttonFontHeight}px saxMono, monospace")
-    titleFontHeight = Math.floor(@canvas.height * 0.1)
+    titleFontHeight = Math.floor(@canvas.height * 0.06)
     @titleFont = @app.registerFont("button", "#{titleFontHeight}px saxMono, monospace")
+    subtitleFontHeight = Math.floor(@canvas.height * 0.02)
+    @subtitleFont = @app.registerFont("button", "#{subtitleFontHeight}px saxMono, monospace")
     return
 
   draw: ->
     @app.drawFill(0, 0, @canvas.width, @canvas.height, "#333333")
 
     x = @canvas.width / 2
-    shadowOffset = @canvas.height * 0.01
+    shadowOffset = @canvas.height * 0.005
 
     y1 = @canvas.height * 0.05
-    y2 = @canvas.height * 0.15
+    y2 = y1 + @canvas.height * 0.06
+    y3 = y2 + @canvas.height * 0.06
     @app.drawTextCentered("Bad Guy", x + shadowOffset, y1 + shadowOffset, @titleFont, "#000000")
     @app.drawTextCentered("Sudoku", x + shadowOffset, y2 + shadowOffset, @titleFont, "#000000")
     @app.drawTextCentered("Bad Guy", x, y1, @titleFont, "#ffffff")
     @app.drawTextCentered("Sudoku", x, y2, @titleFont, "#ffffff")
+    @app.drawTextCentered("It's like Sudoku, but you are the bad guy.", x, y3, @subtitleFont, "#ffffff")
 
     for buttonName, button of @buttons
       @app.drawRoundedRect(button.x + shadowOffset, button.y + shadowOffset, button.w, button.h, button.h * 0.3, "black", "black")
