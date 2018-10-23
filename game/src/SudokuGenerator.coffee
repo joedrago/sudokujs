@@ -103,12 +103,40 @@ class SudokuGenerator
     return solved
 
   hasUniqueSolution: (board) ->
-    firstSolve = @solve(board)
-    for unicityTests in [0...6]
-      nextSolve = @solve(board)
-      if not firstSolve.matches(nextSolve)
-        return false
-    return true
+    solutionCount = 0
+    solved = new Board(board)
+    pencil = new Array(9).fill(null)
+    for i in [0...9]
+      pencil[i] = new Array(9).fill(null)
+    # debugger;
+
+    walkIndex = 0
+    direction = 1
+    while solutionCount < 2
+      while walkIndex < 81
+        x = walkIndex % 9
+        y = Math.floor(walkIndex / 9)
+
+        if not solved.locked[x][y]
+          if (direction == 1) and ((pencil[x][y] == null) or (pencil[x][y].length == 0))
+            pencil[x][y] = @pencilMarks(solved, x, y)
+
+          if pencil[x][y].length == 0
+            solved.grid[x][y] = 0
+            direction = -1
+          else
+            solved.grid[x][y] = pencil[x][y].pop()
+            direction = 1
+
+        walkIndex += direction
+        if walkIndex < 0
+          return true # Assumes there is at least one solution. Returning here indicates that there is no second solution
+
+      walkIndex = 80;
+      direction = -1;
+      solutionCount += 1;
+
+    return false # Only gets here if a second solution is found
 
   generateInternal: (amountToRemove) ->
     board = @solve(new Board())
