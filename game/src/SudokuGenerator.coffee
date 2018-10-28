@@ -77,13 +77,24 @@ class SudokuGenerator
     pencil = new Array(9).fill(null)
     for i in [0...9]
       pencil[i] = new Array(9).fill(null)
-    # debugger;
+    return @solveInternal(board, solved, pencil)
 
-    walkIndex = 0
-    direction = 1
+  hasUniqueSolution: (board) ->
+    solved = new Board(board)
+    pencil = new Array(9).fill(null)
+    for i in [0...9]
+      pencil[i] = new Array(9).fill(null)
+
+    # if there is no solution, return false
+    return false if @solveInternal(board, solved, pencil) == null
+
+    # check for a second solution
+    return @solveInternal(board, solved, pencil, 80, -1) == null
+
+  solveInternal: (board, solved, pencil, walkIndex = 0, direction = 1) ->
     while walkIndex < 81
       x = walkIndex % 9
-      y = Math.floor(walkIndex / 9)
+      y = walkIndex // 9
 
       if not solved.locked[x][y]
         if (direction == 1) and ((pencil[x][y] == null) or (pencil[x][y].length == 0))
@@ -101,42 +112,6 @@ class SudokuGenerator
         return null
 
     return solved
-
-  hasUniqueSolution: (board) ->
-    solutionCount = 0
-    solved = new Board(board)
-    pencil = new Array(9).fill(null)
-    for i in [0...9]
-      pencil[i] = new Array(9).fill(null)
-    # debugger;
-
-    walkIndex = 0
-    direction = 1
-    while solutionCount < 2
-      while walkIndex < 81
-        x = walkIndex % 9
-        y = Math.floor(walkIndex / 9)
-
-        if not solved.locked[x][y]
-          if (direction == 1) and ((pencil[x][y] == null) or (pencil[x][y].length == 0))
-            pencil[x][y] = @pencilMarks(solved, x, y)
-
-          if pencil[x][y].length == 0
-            solved.grid[x][y] = 0
-            direction = -1
-          else
-            solved.grid[x][y] = pencil[x][y].pop()
-            direction = 1
-
-        walkIndex += direction
-        if walkIndex < 0
-          return true # Assumes there is at least one solution. Returning here indicates that there is no second solution
-
-      walkIndex = 80;
-      direction = -1;
-      solutionCount += 1;
-
-    return false # Only gets here if a second solution is found
 
   generateInternal: (amountToRemove) ->
     board = @solve(new Board())
