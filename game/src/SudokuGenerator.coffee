@@ -86,42 +86,80 @@ class SudokuGenerator
       shuffle(marks)
     return marks
 
+  nextAttempt: (board, attempts) ->
+    remainingIndexes = [0...81]
+
+    # skip locked cells
+    for index in [0...81]
+      x = index % 9
+      y = index // 9
+      if board.locked[x][y]
+        k = remainingIndexes.indexOf(index)
+        remainingIndexes.splice(k, 1) if k >= 0
+
+    # skip cells that are already being tried
+    for a in attempts
+      k = remainingIndexes.indexOf(a.index)
+      remainingIndexes.splice(k, 1) if k >= 0
+
+    return null if remainingIndexes.length == 0 # abort if there are no cells (should never happen)
+
+    fewestIndex = -1
+    fewestMarks = [0..9]
+    for index in remainingIndexes
+      x = index % 9
+      y = index // 9
+      marks = @pencilMarks(board, x, y)
+
+      # abort if there is a cell with no possibilities
+      return null if marks.length == 0
+
+      # done if there is a cell with only one possibility ()
+      return { index: index, remaining: marks } if marks.length == 1
+
+      # remember this cell if it has the fewest marks so far
+      if marks.length < fewestMarks.length
+        fewestIndex = index
+        fewestMarks = marks
+    return { index: fewestIndex, remaining: fewestMarks }
+
   solve: (board) ->
     solved = new Board(board)
-    pencil = new Array(9).fill(null)
-    for i in [0...9]
-      pencil[i] = new Array(9).fill(null)
-    return @solveInternal(board, solved, pencil)
+    attempts = []
+    return @solveInternal(solved, attempts)
 
   hasUniqueSolution: (board) ->
     solved = new Board(board)
-    pencil = new Array(9).fill(null)
-    for i in [0...9]
-      pencil[i] = new Array(9).fill(null)
+    attempts = []
 
     # if there is no solution, return false
-    return false if @solveInternal(board, solved, pencil) == null
+    return false if @solveInternal(solved, attempts) == null
 
     # check for a second solution
-    return @solveInternal(board, solved, pencil, 80, -1) == null
+    return @solveInternal(solved, attempts, 80 - board.lockedCount) == null
 
-  solveInternal: (board, solved, pencil, walkIndex = 0, direction = 1) ->
-    while walkIndex < 81
-      x = walkIndex % 9
-      y = walkIndex // 9
+  solveInternal: (solved, attempts, walkIndex = 0) ->
+    unlockedCount = 81 - solved.lockedCount
+    while walkIndex < unlockedCount
+      if walkIndex >= attempts.length
+        attempt = @nextAttempt(solved, attempts)
+        attempts.push(attempt) if attempt != null
+      else
+        attempt = attempts[walkIndex]
 
-      if not solved.locked[x][y]
-        if (direction == 1) and ((pencil[x][y] == null) or (pencil[x][y].length == 0))
-          pencil[x][y] = @pencilMarks(solved, x, y)
-
-        if pencil[x][y].length == 0
-          solved.grid[x][y] = 0
-          direction = -1
+      if attempt != null
+        x = attempt.index % 9
+        y = attempt.index // 9
+        if attempt.remaining.length > 0
+          solved.grid[x][y] = attempt.remaining.pop()
+          walkIndex += 1
         else
-          solved.grid[x][y] = pencil[x][y].pop()
-          direction = 1
+          attempts.pop()
+          solved.grid[x][y] = 0
+          walkIndex -= 1
+      else
+        walkIndex -= 1
 
-      walkIndex += direction
       if walkIndex < 0
         return null
 
@@ -209,11 +247,9 @@ class SudokuGenerator
       console.log "ERROR: Can't be solved."
       return false
 
-    for x in [0...50] # 50 is excessive
-      anotherSolve = @solve(board)
-      if not anotherSolve.matches(solved)
-        console.log "ERROR: Board solve not unique."
-        return false
+    if not @hasUniqueSolution(board)
+      console.log "ERROR: Board solve not unique."
+      return false
 
     answerString = ""
     for j in [0...9]
