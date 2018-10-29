@@ -135,8 +135,13 @@ class SudokuGenerator
     # if there is no solution, return false
     return false if @solveInternal(solved, attempts) == null
 
+    unlockedCount = 81 - solved.lockedCount
+
+    # if there are no unlocked cells, then this solution must be unique
+    return true if unlockedCount == 0
+
     # check for a second solution
-    return @solveInternal(solved, attempts, 80 - board.lockedCount) == null
+    return @solveInternal(solved, attempts, unlockedCount-1) == null
 
   solveInternal: (solved, attempts, walkIndex = 0) ->
     unlockedCount = 81 - solved.lockedCount
