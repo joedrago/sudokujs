@@ -143,9 +143,12 @@ class MenuView
 
   import: ->
     importString = window.prompt("Paste an exported game here:", "")
-    if importString == null
-      return
-    if @app.import(importString)
-      @app.switchView("sudoku")
+    loop
+      if importString == null
+        return
+      if @app.import(importString)
+        @app.switchView("sudoku")
+        return
+      importString = window.prompt("Invalid game, try again:", "")
 
 module.exports = MenuView
