@@ -9,6 +9,7 @@ shuffle = (a) ->
 
 class Board
   constructor: (otherBoard = null) ->
+    @lockedCount = 0;
     @grid = new Array(9).fill(null)
     @locked = new Array(9).fill(null)
     for i in [0...9]
@@ -18,7 +19,7 @@ class Board
       for j in [0...9]
         for i in [0...9]
           @grid[i][j] = otherBoard.grid[i][j]
-          @locked[i][j] = otherBoard.locked[i][j]
+          @lock(i, j, otherBoard.locked[i][j])
     return
 
   matches: (otherBoard) ->
@@ -27,6 +28,14 @@ class Board
         if @grid[i][j] != otherBoard.grid[i][j]
           return false
     return true
+
+  lock: (x, y, v = true) ->
+    if v
+      @lockedCount += 1 if not @locked[x][y]
+    else
+      @lockedCount -= 1 if @locked[x][y]
+    @locked[x][y] = v;
+
 
 class SudokuGenerator
   @difficulty:
@@ -48,6 +57,9 @@ class SudokuGenerator
     return newBoard
 
   cellValid: (board, x, y, v) ->
+    if board.locked[x][y]
+      return board.grid[x][y] == v
+
     for i in [0...9]
       if (x != i) and (board.grid[i][y] == v)
           return false
@@ -64,6 +76,8 @@ class SudokuGenerator
     return true
 
   pencilMarks: (board, x, y) ->
+    if board.locked[x][y]
+      return [ board.grid[x][y] ]
     marks = []
     for v in [1..9]
       if @cellValid(board, x, y, v)
@@ -118,7 +132,7 @@ class SudokuGenerator
     # hack
     for j in [0...9]
       for i in [0...9]
-        board.locked[i][j] = true
+        board.lock(i, j)
 
     indexesToRemove = shuffle([0...81])
     removed = 0
@@ -132,7 +146,8 @@ class SudokuGenerator
 
       nextBoard = new Board(board)
       nextBoard.grid[rx][ry] = 0
-      nextBoard.locked[rx][ry] = false
+      nextBoard.lock(rx, ry, false)
+
       if @hasUniqueSolution(nextBoard)
         board = nextBoard
         removed += 1
@@ -186,8 +201,8 @@ class SudokuGenerator
         v = importString.charCodeAt(index) - zeroCharCode
         index += 1
         if v > 0
-          board.locked[j][i] = true
           board.grid[j][i] = v
+          board.lock(j, i)
 
     solved = @solve(board)
     if solved == null
