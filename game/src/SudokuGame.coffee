@@ -1,5 +1,35 @@
 SudokuGenerator = require './SudokuGenerator'
 
+# Returns the index of a cell in row major order (though they are stored in column major order)
+cellIndex = (x, y) -> y * 9 + x
+
+# Sort by ascending location and then by strength (strong then weak)
+ascendingLinkSort = (a, b) ->
+  a0 = cellIndex(a.cells[0].x, a.cells[0].y)
+  a1 = cellIndex(a.cells[1].x, a.cells[1].y)
+  b0 = cellIndex(b.cells[0].x, b.cells[0].y)
+  b1 = cellIndex(b.cells[1].x, b.cells[1].y)
+  return if a0 > b0 or (a0 == b0 and (a1 > b1 or (a1 == b1 and (not a.strong? and b.strong?)))) then 1 else -1
+
+# Note strength is not compared
+uniqueLinkFilter = (e, i, a) ->
+  if i == 0
+    return true 
+  p = a[i-1]
+  e0 = cellIndex(e.cells[0].x, e.cells[0].y)
+  e1 = cellIndex(e.cells[1].x, e.cells[1].y)
+  p0 = cellIndex(p.cells[0].x, p.cells[0].y)
+  p1 = cellIndex(p.cells[1].x, p.cells[1].y)
+  return e0 != p0 or e1 != p1
+
+generateLinkPermutations = (cells) ->
+  links = []
+  count = cells.length
+  for i in [0...count-1]
+    for j in [i+1...count]
+      links.push({ cells: [cells[i], cells[j]] })
+  return links
+
 class SudokuGame
   constructor: ->
     @clear()
@@ -196,6 +226,85 @@ class SudokuGame
     @highlightY = -1
     @updateCells()
     @save()
+
+  getLinks: (value) ->
+    # Note: the search sorts the links in row major order, first by start cell, then by end cell
+    links = []
+
+    # Get row links
+    for y in [0...9]
+      links.push @getRowLinks(y, value)...
+
+    # Get column links
+    for x in [0...9]
+      links.push @getColumnLinks(x, value)...
+
+    # Get box links
+    for boxX in [0...3]
+      for boxY in [0...3]
+        links.push @getBoxLinks(boxX, boxY, value)...
+
+    # The box links might have duplicated some row and column links, so duplicates must be filtered out. Note that only
+    # locations are considered when finding duplicates, but strong links take precedence when duplicates are removed 
+    # (because they are ordered before weak links).
+    links = links.sort(ascendingLinkSort).filter(uniqueLinkFilter)
+
+    strong = []
+    for link in links
+      strong.push link.cells if link.strong?
+    weak = []
+    for link in links
+      weak.push link.cells if not link.strong?
+
+    return { strong, weak }
+
+  getRowLinks: (y, value)->
+    cells = []
+    for x in [0...9]
+      cell = @grid[x][y]
+      if cell.value == 0 and cell.pencil[value-1]
+        cells.push({ x, y })
+
+    if cells.length > 1
+      links = generateLinkPermutations(cells)
+      if links.length == 1
+        links[0].strong = true
+    else
+      links = []
+    return links
+
+  getColumnLinks: (x, value)->
+    cells = []
+    for y in [0...9]
+      cell = @grid[x][y]
+      if cell.value == 0 and cell.pencil[value-1]
+        cells.push({ x, y })
+
+    if cells.length > 1
+      links = generateLinkPermutations(cells)
+      if links.length == 1
+        links[0].strong = true
+    else
+      links = []
+    return links
+
+  getBoxLinks: (boxX, boxY, value) ->
+    cells = []
+    sx = boxX * 3
+    sy = boxY * 3
+    for y in [sy...sy+3]
+      for x in [sx...sx+3]
+        cell = @grid[x][y]
+        if cell.value == 0 and cell.pencil[value-1]
+          cells.push({ x, y })
+
+    if cells.length > 1
+      links = generateLinkPermutations(cells)
+      if links.length == 1
+        links[0].strong = true
+    else
+      links = []
+    return links
 
   newGame: (difficulty) ->
     console.log "newGame(#{difficulty})"

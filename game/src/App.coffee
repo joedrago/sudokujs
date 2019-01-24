@@ -131,6 +131,51 @@ class App
     @ctx.textAlign = "right"
     @ctx.fillText("v#{version}", @canvas.width - (@versionFont.height / 2), @canvas.height - (@versionFont.height / 2))
 
+  drawArc: (x1, y1, x2, y2, radius, color, lineWidth) ->
+    # Derived from https://github.com/jambolo/drawArc at 6c3e0d3
+
+    P1 = { x: x1, y: y1 }
+    P2 = { x: x2, y: y2 }
+
+    # Determine the midpoint (M) from P1 to P2
+    M =
+      x: (P1.x + P2.x) / 2
+      y: (P1.y + P2.y) / 2
+
+    # Determine the distance from M to P1
+    dMP1 = Math.sqrt((P1.x - M.x)*(P1.x - M.x) + (P1.y - M.y)*(P1.y - M.y))
+
+    # Validate the radius
+    if not radius? or radius < dMP1
+      radius = dMP1
+
+    # Determine the unit vector from M to P1
+    uMP1 =
+      x: (P1.x - M.x) / dMP1
+      y: (P1.y - M.y) / dMP1
+
+    # Determine the unit vector from M to Q (just uMP1 rotated pi/2)
+    uMQ = { x: -uMP1.y, y: uMP1.x }
+
+    # Determine the distance from the center of the circle (C) to M
+    dCM = Math.sqrt(radius*radius - dMP1*dMP1)
+
+    # Determine the distance from M to Q
+    dMQ = dMP1 * dMP1 / dCM
+
+    # Determine the location of Q
+    Q =
+      x: M.x + uMQ.x * dMQ
+      y: M.y + uMQ.y * dMQ
+
+    @ctx.beginPath()
+    @ctx.strokeStyle = color
+    @ctx.lineWidth = lineWidth
+    @ctx.moveTo(x1, y1)
+    @ctx.arcTo(Q.x, Q.y, x2, y2, radius)
+    @ctx.stroke()
+    return
+
 CanvasRenderingContext2D.prototype.roundRect = (x, y, w, h, r) ->
   if (w < 2 * r) then r = w / 2
   if (h < 2 * r) then r = h / 2
