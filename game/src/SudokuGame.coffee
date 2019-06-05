@@ -20,6 +20,7 @@ class SudokuGame
           pencil: new Array(9).fill(false)
 
     @solved = false
+    @journal = []
 
   holeCount: ->
     count = 0
@@ -140,6 +141,7 @@ class SudokuGame
     cell = @grid[x][y]
     if cell.locked
       return
+    @journal.push { action: "togglePencil", x: x, y: y, values: (i for flag, i in cell.pencil when flag) }
     for i in [0...9]
       cell.pencil[i] = false
     @save()
@@ -148,6 +150,7 @@ class SudokuGame
     cell = @grid[x][y]
     if cell.locked
       return
+    @journal.push { action: "togglePencil", x: x, y: y, values: [v] }
     cell.pencil[v-1] = !cell.pencil[v-1]
     @save()
 
@@ -155,9 +158,22 @@ class SudokuGame
     cell = @grid[x][y]
     if cell.locked
       return
+    @journal.push { action: "setValue", x: x, y: y, values: [cell.value] }
     cell.value = v
     @updateCells()
     @save()
+
+  undo: ->
+    if (@journal.length > 0)
+      step = @journal.pop()
+      cell = @grid[step.x][step.y]
+      switch step.action
+        when "togglePencil"
+          cell.pencil[v] = !cell.pencil[v] for v in step.values
+        when "setValue"
+          cell.value = step.values[0]
+      @updateCells()
+      @save()
 
   reset: ->
     console.log "reset()"
@@ -169,6 +185,7 @@ class SudokuGame
         cell.error = false
         for k in [0...9]
           cell.pencil[k] = false
+    @journal = []
     @highlightX = -1
     @highlightY = -1
     @updateCells()
@@ -193,6 +210,7 @@ class SudokuGame
         if newGrid[i][j] != 0
           @grid[i][j].value = newGrid[i][j]
           @grid[i][j].locked = true
+    @journal = []
     @updateCells()
     @save()
 
