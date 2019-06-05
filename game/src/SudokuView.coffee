@@ -37,7 +37,7 @@ ActionType =
   SELECT: 0
   PENCIL: 1
   VALUE: 2
-  NEWGAME: 3
+  MENU: 3
 
 class SudokuView
   # -------------------------------------------------------------------------------------
@@ -102,9 +102,9 @@ class SudokuView
     index = (PENCIL_CLEAR_POS_Y * 9) + PENCIL_CLEAR_POS_X
     @actions[index] = { type: ActionType.PENCIL, x: 10, y: 0 }
 
-    # New Game button
+    # Menu button
     index = (MENU_POS_Y * 9) + MENU_POS_X
-    @actions[index] = { type: ActionType.NEWGAME, x: 0, y: 0 }
+    @actions[index] = { type: ActionType.MENU, x: 0, y: 0 }
 
     return
 
@@ -292,7 +292,7 @@ class SudokuView
                 @isPencil = false
                 @penValue = action.x
 
-            when ActionType.NEWGAME
+            when ActionType.MENU
               @app.switchView("menu")
               return
         else
