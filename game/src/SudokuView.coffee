@@ -17,6 +17,9 @@ MENU_POS_Y = 13
 MODE_POS_X = 4
 MODE_POS_Y = 9
 
+UNDO_POS_X = 8
+UNDO_POS_Y = 13
+
 Color =
   value: "black"
   pencil: "#0000ff"
@@ -37,7 +40,8 @@ ActionType =
   SELECT: 0
   PENCIL: 1
   VALUE: 2
-  NEWGAME: 3
+  MENU: 3
+  UNDO: 4
 
 class SudokuView
   # -------------------------------------------------------------------------------------
@@ -102,9 +106,13 @@ class SudokuView
     index = (PENCIL_CLEAR_POS_Y * 9) + PENCIL_CLEAR_POS_X
     @actions[index] = { type: ActionType.PENCIL, x: 10, y: 0 }
 
-    # New Game button
+    # Menu button
     index = (MENU_POS_Y * 9) + MENU_POS_X
-    @actions[index] = { type: ActionType.NEWGAME, x: 0, y: 0 }
+    @actions[index] = { type: ActionType.MENU, x: 0, y: 0 }
+
+    # Undo button
+    index = (UNDO_POS_Y * 9) + UNDO_POS_X
+    @actions[index] = { type: ActionType.UNDO, x: 0, y: 0 }
 
     return
 
@@ -220,6 +228,7 @@ class SudokuView
     @drawCell(MODE_POS_X, MODE_POS_Y, null, modeText, @fonts.newgame, modeColor)
 
     @drawCell(MENU_POS_X, MENU_POS_Y, null, "Menu", @fonts.newgame, Color.newGame)
+    @drawCell(UNDO_POS_X, UNDO_POS_Y, null, "<<", @fonts.newgame, Color.newGame)
 
     # Make the grids
     @drawGrid(0, 0, 9, @game.solved)
@@ -292,9 +301,12 @@ class SudokuView
                 @isPencil = false
                 @penValue = action.x
 
-            when ActionType.NEWGAME
+            when ActionType.MENU
               @app.switchView("menu")
               return
+              
+            when ActionType.UNDO
+              @game.undo()
         else
           # no action
           @highlightX = -1
