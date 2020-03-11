@@ -20,7 +20,8 @@ class SudokuGame
           pencil: new Array(9).fill(false)
 
     @solved = false
-    @journal = []
+    @undoJournal = []
+    @redoJournal = []
 
   holeCount: ->
     count = 0
@@ -137,43 +138,47 @@ class SudokuGame
         s += String(i+1)
     return s
 
+  do: (action, x, y, values, journal) ->
+    if values.length > 0
+      cell = @grid[x][y]
+      switch action
+        when "togglePencil"
+          journal.push { action: "togglePencil", x: x, y: y, values: values }
+          cell.pencil[v-1] = !cell.pencil[v-1] for v in values
+        when "setValue"
+          journal.push { action: "setValue", x: x, y: y, values: [cell.value] }
+          cell.value = values[0]
+      @updateCells()
+      @save()
+
+  undo: ->
+    if (@undoJournal.length > 0)
+      step = @undoJournal.pop()
+      @do step.action, step.x, step.y, step.values, @redoJournal
+
+  redo: ->
+    if (@redoJournal.length > 0)
+      step = @redoJournal.pop()
+      @do step.action, step.x, step.y, step.values, @undoJournal
+
   clearPencil: (x, y) ->
     cell = @grid[x][y]
     if cell.locked
       return
-    @journal.push { action: "togglePencil", x: x, y: y, values: (i for flag, i in cell.pencil when flag) }
-    for i in [0...9]
-      cell.pencil[i] = false
-    @save()
+    @do "togglePencil", x, y, (i+1 for flag, i in cell.pencil when flag), @undoJournal
+    @redoJournal = []
 
   togglePencil: (x, y, v) ->
-    cell = @grid[x][y]
-    if cell.locked
+    if @grid[x][y].locked
       return
-    @journal.push { action: "togglePencil", x: x, y: y, values: [v] }
-    cell.pencil[v-1] = !cell.pencil[v-1]
-    @save()
+    @do "togglePencil", x, y, [v], @undoJournal
+    @redoJournal = []
 
   setValue: (x, y, v) ->
-    cell = @grid[x][y]
-    if cell.locked
+    if @grid[x][y].locked
       return
-    @journal.push { action: "setValue", x: x, y: y, values: [cell.value] }
-    cell.value = v
-    @updateCells()
-    @save()
-
-  undo: ->
-    if (@journal.length > 0)
-      step = @journal.pop()
-      cell = @grid[step.x][step.y]
-      switch step.action
-        when "togglePencil"
-          cell.pencil[v] = !cell.pencil[v] for v in step.values
-        when "setValue"
-          cell.value = step.values[0]
-      @updateCells()
-      @save()
+    @do "setValue", x, y, [v], @undoJournal
+    @redoJournal = []
 
   reset: ->
     console.log "reset()"
@@ -185,7 +190,8 @@ class SudokuGame
         cell.error = false
         for k in [0...9]
           cell.pencil[k] = false
-    @journal = []
+    @undoJournal = []
+    @redoJournal = []
     @highlightX = -1
     @highlightY = -1
     @updateCells()
@@ -210,7 +216,8 @@ class SudokuGame
         if newGrid[i][j] != 0
           @grid[i][j].value = newGrid[i][j]
           @grid[i][j].locked = true
-    @journal = []
+    @undoJournal = []
+    @redoJournal = []
     @updateCells()
     @save()
 
