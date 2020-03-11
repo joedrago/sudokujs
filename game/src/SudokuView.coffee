@@ -19,6 +19,8 @@ MODE_POS_Y = 9
 
 UNDO_POS_X = 0
 UNDO_POS_Y = 13
+REDO_POS_X = 8
+REDO_POS_Y = 13
 
 Color =
   value: "black"
@@ -42,6 +44,7 @@ ActionType =
   VALUE: 2
   MENU: 3
   UNDO: 4
+  REDO: 5
 
 class SudokuView
   # -------------------------------------------------------------------------------------
@@ -113,6 +116,10 @@ class SudokuView
     # Undo button
     index = (UNDO_POS_Y * 9) + UNDO_POS_X
     @actions[index] = { type: ActionType.UNDO, x: 0, y: 0 }
+
+    # Redo button
+    index = (REDO_POS_Y * 9) + REDO_POS_X
+    @actions[index] = { type: ActionType.REDO, x: 0, y: 0 }
 
     return
 
@@ -228,7 +235,8 @@ class SudokuView
     @drawCell(MODE_POS_X, MODE_POS_Y, null, modeText, @fonts.newgame, modeColor)
 
     @drawCell(MENU_POS_X, MENU_POS_Y, null, "Menu", @fonts.newgame, Color.newGame)
-    @drawCell(UNDO_POS_X, UNDO_POS_Y, null, "\u{23f4}", @fonts.newgame, Color.newGame) if (@game.journal.length > 0)
+    @drawCell(UNDO_POS_X, UNDO_POS_Y, null, "\u{23f4}", @fonts.newgame, Color.newGame) if (@game.undoJournal.length > 0)
+    @drawCell(REDO_POS_X, REDO_POS_Y, null, "\u{23f5}", @fonts.newgame, Color.newGame) if (@game.redoJournal.length > 0)
 
     # Make the grids
     @drawGrid(0, 0, 9, @game.solved)
@@ -307,6 +315,10 @@ class SudokuView
               
             when ActionType.UNDO
               @game.undo()
+              
+            when ActionType.REDO
+              @game.redo()
+
         else
           # no action
           @highlightX = -1
