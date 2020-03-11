@@ -17,7 +17,7 @@ MENU_POS_Y = 13
 MODE_POS_X = 4
 MODE_POS_Y = 9
 
-UNDO_POS_X = 8
+UNDO_POS_X = 0
 UNDO_POS_Y = 13
 
 Color =
@@ -228,7 +228,7 @@ class SudokuView
     @drawCell(MODE_POS_X, MODE_POS_Y, null, modeText, @fonts.newgame, modeColor)
 
     @drawCell(MENU_POS_X, MENU_POS_Y, null, "Menu", @fonts.newgame, Color.newGame)
-    @drawCell(UNDO_POS_X, UNDO_POS_Y, null, "<<", @fonts.newgame, Color.newGame)
+    @drawCell(UNDO_POS_X, UNDO_POS_Y, null, "\u{23f4}", @fonts.newgame, Color.newGame) if (@game.journal.length > 0)
 
     # Make the grids
     @drawGrid(0, 0, 9, @game.solved)
