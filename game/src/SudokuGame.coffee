@@ -141,7 +141,7 @@ class SudokuGame
     cell = @grid[x][y]
     if cell.locked
       return
-    @journal.push { action: "togglePencil", x: x, y: y, values: (i for flag, i in cell.pencil when flag) }
+    @journal.push { action: "togglePencil", x: x, y: y, values: (i+1 for flag, i in cell.pencil when flag) }
     for i in [0...9]
       cell.pencil[i] = false
     @save()
@@ -169,7 +169,7 @@ class SudokuGame
       cell = @grid[step.x][step.y]
       switch step.action
         when "togglePencil"
-          cell.pencil[v] = !cell.pencil[v] for v in step.values
+          cell.pencil[v-1] = !cell.pencil[v-1] for v in step.values
         when "setValue"
           cell.value = step.values[0]
       @updateCells()
