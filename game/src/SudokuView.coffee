@@ -235,8 +235,8 @@ class SudokuView
     @drawCell(MODE_POS_X, MODE_POS_Y, null, modeText, @fonts.newgame, modeColor)
 
     @drawCell(MENU_POS_X, MENU_POS_Y, null, "Menu", @fonts.newgame, Color.newGame)
-    @drawCell(UNDO_POS_X, UNDO_POS_Y, null, "\u{23f4}", @fonts.newgame, Color.newGame) if (@game.undoJournal.length > 0)
-    @drawCell(REDO_POS_X, REDO_POS_Y, null, "\u{23f5}", @fonts.newgame, Color.newGame) if (@game.redoJournal.length > 0)
+    @drawCell(UNDO_POS_X, UNDO_POS_Y, null, "\u{25c4}", @fonts.newgame, Color.newGame) if (@game.undoJournal.length > 0)
+    @drawCell(REDO_POS_X, REDO_POS_Y, null, "\u{25ba}", @fonts.newgame, Color.newGame) if (@game.redoJournal.length > 0)
 
     # Make the grids
     @drawGrid(0, 0, 9, @game.solved)
