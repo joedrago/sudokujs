@@ -27,7 +27,7 @@ Color =
   pencil: "#0000ff"
   error: "#ff0000"
   done: "#cccccc"
-  newGame: "#008833"
+  menu: "#008833"
   backgroundSelected: "#eeeeaa"
   backgroundLocked: "#eeeeee"
   backgroundLockedConflicted: "#ffffee"
@@ -41,10 +41,14 @@ Color =
 ActionType =
   SELECT: 0
   PENCIL: 1
-  VALUE: 2
+  PEN: 2
   MENU: 3
   UNDO: 4
   REDO: 5
+
+# Special pen/pencil values
+NONE = 0
+CLEAR = 10
 
 class SudokuView
   # -------------------------------------------------------------------------------------
@@ -69,7 +73,7 @@ class SudokuView
     # init fonts
     @fonts =
       pencil:  @app.registerFont("pencil",  "#{fontPixelsS}px saxMono, monospace")
-      newgame: @app.registerFont("newgame", "#{fontPixelsM}px saxMono, monospace")
+      menu:    @app.registerFont("menu",    "#{fontPixelsM}px saxMono, monospace")
       pen:     @app.registerFont("pen",     "#{fontPixelsL}px saxMono, monospace")
 
     @initActions()
@@ -91,37 +95,37 @@ class SudokuView
     for j in [0...3]
       for i in [0...3]
         index = ((PEN_POS_Y + j) * 9) + (PEN_POS_X + i)
-        @actions[index] = { type: ActionType.VALUE, x: 1 + (j * 3) + i, y: 0 }
+        @actions[index] = { type: ActionType.PEN, value: 1 + (j * 3) + i }
 
     for j in [0...3]
       for i in [0...3]
         index = ((PENCIL_POS_Y + j) * 9) + (PENCIL_POS_X + i)
-        @actions[index] = { type: ActionType.PENCIL, x: 1 + (j * 3) + i, y: 0 }
+        @actions[index] = { type: ActionType.PENCIL, value: 1 + (j * 3) + i }
 
-    # Value clear button
+    # Pen clear button
     index = (PEN_CLEAR_POS_Y * 9) + PEN_CLEAR_POS_X
-    @actions[index] = { type: ActionType.VALUE, x: 10, y: 0 }
+    @actions[index] = { type: ActionType.PEN, value: CLEAR }
 
     # Pencil clear button
     index = (PENCIL_CLEAR_POS_Y * 9) + PENCIL_CLEAR_POS_X
-    @actions[index] = { type: ActionType.PENCIL, x: 10, y: 0 }
+    @actions[index] = { type: ActionType.PENCIL, value: CLEAR }
 
     # Menu button
     index = (MENU_POS_Y * 9) + MENU_POS_X
-    @actions[index] = { type: ActionType.MENU, x: 0, y: 0 }
+    @actions[index] = { type: ActionType.MENU }
 
     # Undo button
     index = (UNDO_POS_Y * 9) + UNDO_POS_X
-    @actions[index] = { type: ActionType.UNDO, x: 0, y: 0 }
+    @actions[index] = { type: ActionType.UNDO }
 
     # Redo button
     index = (REDO_POS_Y * 9) + REDO_POS_X
-    @actions[index] = { type: ActionType.REDO, x: 0, y: 0 }
+    @actions[index] = { type: ActionType.REDO }
 
     return
 
   resetState: ->
-    @penValue = 0
+    @penValue = NONE
     @isPencil = false
     @highlightX = -1
     @highlightY = -1
@@ -160,6 +164,7 @@ class SudokuView
     # Make white phone-shaped background
     @app.drawFill(0, 0, @cellSize * 9, @canvas.height, "white")
 
+    # Draw board numbers
     for j in [0...9]
       for i in [0...9]
         cell = @game.grid[i][j]
@@ -196,6 +201,7 @@ class SudokuView
 
         @drawCell(i, j, backgroundColor, text, font, textColor)
 
+    # Draw pen and pencil number buttons
     done = @game.done()
     for j in [0...3]
       for i in [0...3]
@@ -218,9 +224,10 @@ class SudokuView
         @drawCell(PEN_POS_X + i, PEN_POS_Y + j, valueBackgroundColor, currentValueString, @fonts.pen, valueColor)
         @drawCell(PENCIL_POS_X + i, PENCIL_POS_Y + j, pencilBackgroundColor, currentValueString, @fonts.pen, pencilColor)
 
+    # Draw pen and pencil CLEAR buttons
     valueBackgroundColor = null
     pencilBackgroundColor = null
-    if @penValue == 10
+    if @penValue == CLEAR
         if @isPencil
             pencilBackgroundColor = Color.backgroundSelected
         else
@@ -235,11 +242,11 @@ class SudokuView
     else
       modeColor = if @isPencil then Color.modePencil else Color.modePen
       modeText = if @isPencil then "Pencil" else "Pen"
-    @drawCell(MODE_POS_X, MODE_POS_Y, null, modeText, @fonts.newgame, modeColor)
+    @drawCell(MODE_POS_X, MODE_POS_Y, null, modeText, @fonts.menu, modeColor)
 
-    @drawCell(MENU_POS_X, MENU_POS_Y, null, "Menu", @fonts.newgame, Color.newGame)
-    @drawCell(UNDO_POS_X, UNDO_POS_Y, null, "\u{25c4}", @fonts.newgame, Color.newGame) if (@game.undoJournal.length > 0)
-    @drawCell(REDO_POS_X, REDO_POS_Y, null, "\u{25ba}", @fonts.newgame, Color.newGame) if (@game.redoJournal.length > 0)
+    @drawCell(MENU_POS_X, MENU_POS_Y, null, "Menu", @fonts.menu, Color.menu)
+    @drawCell(UNDO_POS_X, UNDO_POS_Y, null, "\u{25c4}", @fonts.menu, Color.menu) if (@game.undoJournal.length > 0)
+    @drawCell(REDO_POS_X, REDO_POS_Y, null, "\u{25ba}", @fonts.menu, Color.menu) if (@game.redoJournal.length > 0)
 
     # Make the grids
     @drawGrid(0, 0, 9, @game.solved)
@@ -282,7 +289,7 @@ class SudokuView
           console.log "Action: ", action
           switch action.type
             when ActionType.SELECT
-              if @penValue == 0
+              if @penValue == NONE
                 if (@highlightX == action.x) && (@highlightY == action.y)
                   @highlightX = -1
                   @highlightY = -1
@@ -291,29 +298,29 @@ class SudokuView
                   @highlightY = action.y
               else
                 if @isPencil
-                  if @penValue == 10
+                  if @penValue == CLEAR
                     @game.clearPencil(action.x, action.y)
                   else
                     @game.togglePencil(action.x, action.y, @penValue)
                 else
-                  if @penValue == 10
+                  if @penValue == CLEAR
                     @game.setValue(action.x, action.y, 0)
                   else
                     @game.setValue(action.x, action.y, @penValue)
 
             when ActionType.PENCIL
-              if @isPencil and  (@penValue == action.x)
-                @penValue = 0
+              if @isPencil and  (@penValue == action.value)
+                @penValue = NONE
               else
                 @isPencil = true
-                @penValue = action.x
+                @penValue = action.value
 
-            when ActionType.VALUE
-              if not @isPencil and (@penValue == action.x)
-                @penValue = 0
+            when ActionType.PEN
+              if not @isPencil and (@penValue == action.value)
+                @penValue = NONE
               else
                 @isPencil = false
-                @penValue = action.x
+                @penValue = action.value
 
             when ActionType.MENU
               @app.switchView("menu")
@@ -329,7 +336,7 @@ class SudokuView
           # no action
           @highlightX = -1
           @highlightY = -1
-          @penValue = 0
+          @penValue = NONE
           @isPencil = false
 
         @draw()
