@@ -46,6 +46,11 @@ ActionType =
   UNDO: 4
   REDO: 5
 
+ModeType =
+  HIGHLIGHTING: 0
+  PENCIL: 1
+  PEN: 2
+
 # Special pen/pencil values
 NONE = 0
 CLEAR = 10
@@ -125,8 +130,8 @@ class SudokuView
     return
 
   resetState: ->
+    @mode = ModeType.HIGHLIGHTING
     @penValue = NONE
-    @isPencil = false
     @highlightX = -1
     @highlightY = -1
 
@@ -216,7 +221,7 @@ class SudokuView
         valueBackgroundColor = null
         pencilBackgroundColor = null
         if @penValue == currentValue
-          if @isPencil
+          if @mode is ModeType.PENCIL
             pencilBackgroundColor = Color.backgroundSelected
           else
             valueBackgroundColor = Color.backgroundSelected
@@ -228,7 +233,7 @@ class SudokuView
     valueBackgroundColor = null
     pencilBackgroundColor = null
     if @penValue == CLEAR
-        if @isPencil
+        if @mode is ModeType.PENCIL
             pencilBackgroundColor = Color.backgroundSelected
         else
             valueBackgroundColor = Color.backgroundSelected
@@ -236,12 +241,17 @@ class SudokuView
     @drawCell(PEN_CLEAR_POS_X, PEN_CLEAR_POS_Y, valueBackgroundColor, "C", @fonts.pen, Color.error)
     @drawCell(PENCIL_CLEAR_POS_X, PENCIL_CLEAR_POS_Y, pencilBackgroundColor, "C", @fonts.pen, Color.error)
 
-    if @penValue == 0
+    # Draw mode
+    switch @mode
+      when ModeType.HIGHLIGHTING
       modeColor = Color.modeSelect
       modeText = "Highlighting"
-    else
-      modeColor = if @isPencil then Color.modePencil else Color.modePen
-      modeText = if @isPencil then "Pencil" else "Pen"
+      when ModeType.PENCIL
+        modeColor = Color.modePencil
+        modeText = "Pencil"
+      when ModeType.PEN
+        modeColor = Color.modePen
+        modeText = "Pen"
     @drawCell(MODE_POS_X, MODE_POS_Y, null, modeText, @fonts.menu, modeColor)
 
     @drawCell(MENU_POS_X, MENU_POS_Y, null, "Menu", @fonts.menu, Color.menu)
@@ -277,6 +287,52 @@ class SudokuView
   holeCount: ->
     return @game.holeCount()
 
+  handleSelectAction: (action) ->
+    switch @mode
+      when ModeType.HIGHLIGHTING
+                if (@highlightX == action.x) && (@highlightY == action.y)
+                  @highlightX = -1
+                  @highlightY = -1
+                else
+                  @highlightX = action.x
+                  @highlightY = action.y
+      when ModeType.PENCIL
+                  if @penValue == CLEAR
+                    @game.clearPencil(action.x, action.y)
+        else if @penValue != NONE
+                    @game.togglePencil(action.x, action.y, @penValue)
+      when ModeType.PEN
+                  if @penValue == CLEAR
+                    @game.setValue(action.x, action.y, 0)
+        else if @penValue != NONE
+                    @game.setValue(action.x, action.y, @penValue)
+
+  handlePencilAction: (action) ->
+    if @mode is ModeType.PENCIL and (@penValue == action.value)
+      @mode = ModeType.HIGHLIGHTING
+                @penValue = NONE
+              else
+      @mode = ModeType.PENCIL
+                @penValue = action.value
+    @highlightX = -1
+    @highlightY = -1
+
+  handlePenAction: (action) ->
+    if @mode is ModeType.PEN and (@penValue == action.value)
+      @mode = ModeType.HIGHLIGHTING
+                @penValue = NONE
+              else
+      @mode = ModeType.PEN
+                @penValue = action.value
+    @highlightX = -1
+    @highlightY = -1
+
+  handleUndoAction: ->
+              @game.undo()
+
+  handleRedoAction: ->
+              @game.redo()
+
   click: (x, y) ->
     # console.log "click #{x}, #{y}"
     x = Math.floor(x / @cellSize)
@@ -287,57 +343,23 @@ class SudokuView
         action = @actions[index]
         if action != null
           console.log "Action: ", action
-          switch action.type
-            when ActionType.SELECT
-              if @penValue == NONE
-                if (@highlightX == action.x) && (@highlightY == action.y)
-                  @highlightX = -1
-                  @highlightY = -1
-                else
-                  @highlightX = action.x
-                  @highlightY = action.y
-              else
-                if @isPencil
-                  if @penValue == CLEAR
-                    @game.clearPencil(action.x, action.y)
-                  else
-                    @game.togglePencil(action.x, action.y, @penValue)
-                else
-                  if @penValue == CLEAR
-                    @game.setValue(action.x, action.y, 0)
-                  else
-                    @game.setValue(action.x, action.y, @penValue)
 
-            when ActionType.PENCIL
-              if @isPencil and  (@penValue == action.value)
-                @penValue = NONE
-              else
-                @isPencil = true
-                @penValue = action.value
+          if action.type is ActionType.MENU
+            @app.switchView("menu")
+            return
 
-            when ActionType.PEN
-              if not @isPencil and (@penValue == action.value)
-                @penValue = NONE
-              else
-                @isPencil = false
-                @penValue = action.value
-
-            when ActionType.MENU
-              @app.switchView("menu")
-              return
-              
-            when ActionType.UNDO
-              @game.undo()
-              
-            when ActionType.REDO
-              @game.redo()
-
+          switch action.type 
+            when ActionType.SELECT then @handleSelectAction(action)
+            when ActionType.PENCIL then @handlePencilAction(action)
+            when ActionType.PEN then @handlePenAction(action)
+            when ActionType.UNDO then @handleUndoAction()
+            when ActionType.REDO then @handleRedoAction()
         else
-          # no action
+          # no action, default to highlighting
+          @mode = ModeType.HIGHLIGHTING
           @highlightX = -1
           @highlightY = -1
           @penValue = NONE
-          @isPencil = false
 
         @draw()
 
