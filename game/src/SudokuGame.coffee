@@ -71,6 +71,16 @@ class SudokuGame
           exportString += "0"
     return exportString
 
+  validate: ->
+    board = new Array(9).fill(null)
+    for i in [0...9]
+      board[i] = new Array(9).fill(0)
+      for j in [0...9]
+        board[i][j] = @grid[i][j].value
+
+    generator = new SudokuGenerator
+    return generator.validateGrid(board)
+
   import: (importString) ->
     if importString.indexOf("SD") != 0
       return false
@@ -91,6 +101,8 @@ class SudokuGame
           @grid[i][j].locked = true
           @grid[i][j].value = v
 
+    return false if not @validate()
+    
     @updateCells()
     @save()
     return true
