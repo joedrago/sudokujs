@@ -76,10 +76,7 @@ class SudokuView
 
     # init state
     @game = new SudokuGame()
-    @penValue = 0
-    @isPencil = false
-    @highlightX = -1
-    @highlightY = -1
+    @resetState()
 
     @draw()
 
@@ -122,6 +119,12 @@ class SudokuView
     @actions[index] = { type: ActionType.REDO, x: 0, y: 0 }
 
     return
+
+  resetState: ->
+    @penValue = 0
+    @isPencil = false
+    @highlightX = -1
+    @highlightY = -1
 
   # -------------------------------------------------------------------------------------
   # Rendering
@@ -250,12 +253,15 @@ class SudokuView
 
   newGame: (difficulty) ->
     console.log "SudokuView.newGame(#{difficulty})"
+    @resetState()
     @game.newGame(difficulty)
 
   reset: ->
+    @resetState()
     @game.reset()
 
   import: (importString) ->
+    @resetState()
     return @game.import(importString)
 
   export: ->
