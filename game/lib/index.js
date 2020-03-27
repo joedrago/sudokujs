@@ -386,11 +386,15 @@ MenuView = (function() {
   MenuView.prototype["import"] = function() {
     var importString;
     importString = window.prompt("Paste an exported game here:", "");
-    if (importString === null) {
-      return;
-    }
-    if (this.app["import"](importString)) {
-      return this.app.switchView("sudoku");
+    while (true) {
+      if (importString === null) {
+        return;
+      }
+      if (this.app["import"](importString)) {
+        this.app.switchView("sudoku");
+        return;
+      }
+      importString = window.prompt("Invalid game, try again:", "");
     }
   };
 
@@ -464,6 +468,19 @@ SudokuGame = (function() {
     return exportString;
   };
 
+  SudokuGame.prototype.validate = function() {
+    var board, generator, i, j, l, m;
+    board = new Array(9).fill(null);
+    for (i = l = 0; l < 9; i = ++l) {
+      board[i] = new Array(9).fill(0);
+      for (j = m = 0; m < 9; j = ++m) {
+        board[i][j] = this.grid[i][j].value;
+      }
+    }
+    generator = new SudokuGenerator;
+    return generator.validateGrid(board);
+  };
+
   SudokuGame.prototype["import"] = function(importString) {
     var i, index, j, l, m, v, zeroCharCode;
     if (importString.indexOf("SD") !== 0) {
@@ -486,6 +503,9 @@ SudokuGame = (function() {
           this.grid[i][j].value = v;
         }
       }
+    }
+    if (!this.validate()) {
+      return false;
     }
     this.updateCells();
     this.save();
@@ -891,6 +911,20 @@ SudokuGenerator = (function() {
     return newBoard;
   };
 
+  SudokuGenerator.prototype.gridToBoard = function(grid) {
+    var board, l, m, x, y;
+    board = new Board;
+    for (y = l = 0; l < 9; y = ++l) {
+      for (x = m = 0; m < 9; x = ++m) {
+        if (grid[x][y] > 0) {
+          board.grid[x][y] = grid[x][y];
+          board.lock(x, y);
+        }
+      }
+    }
+    return board;
+  };
+
   SudokuGenerator.prototype.cellValid = function(board, x, y, v) {
     var i, j, l, m, n, sx, sy;
     if (board.locked[x][y]) {
@@ -1114,6 +1148,10 @@ SudokuGenerator = (function() {
     }
     console.log("giving user board: " + best.removed + " / " + amountToRemove);
     return this.boardToGrid(best.board);
+  };
+
+  SudokuGenerator.prototype.validateGrid = function(grid) {
+    return this.hasUniqueSolution(this.gridToBoard(grid));
   };
 
   SudokuGenerator.prototype.solveString = function(importString) {

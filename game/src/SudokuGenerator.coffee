@@ -56,6 +56,15 @@ class SudokuGenerator
           newBoard[i][j] = board.grid[i][j]
     return newBoard
 
+  gridToBoard: (grid) ->
+    board = new Board
+    for y in [0...9]
+      for x in [0...9]
+        if grid[x][y] > 0
+          board.grid[x][y] = grid[x][y]
+          board.lock(x, y)
+    return board
+
   cellValid: (board, x, y, v) ->
     if board.locked[x][y]
       return board.grid[x][y] == v
@@ -226,6 +235,9 @@ class SudokuGenerator
 
     console.log "giving user board: #{best.removed} / #{amountToRemove}"
     return @boardToGrid(best.board)
+
+  validateGrid: (grid) ->
+    return @hasUniqueSolution(@gridToBoard(grid))
 
   solveString: (importString) ->
     if importString.indexOf("SD") != 0
