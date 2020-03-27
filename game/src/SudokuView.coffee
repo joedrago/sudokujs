@@ -350,10 +350,6 @@ class SudokuView
         @penValue = action.value
         { strong: @strongLinks, weak: @weakLinks } = @game.getLinks(action.value)
 
-      # Make sure any highlighting is off.
-      @highlightX = -1
-      @highlightY = -1
-
     # In PENCIL mode, the mode is changed to HIGHLIGHTING if the selected value is already current
     else if @mode is ModeType.PENCIL and (@penValue == action.value)
       @mode = ModeType.HIGHLIGHTING
@@ -365,10 +361,10 @@ class SudokuView
       @penValue = action.value
 
       # Make sure any highlighting is off and links are cleared.
-    @highlightX = -1
-    @highlightY = -1
-    @strongLinks = []
-    @weakLinks = []
+      @highlightX = -1
+      @highlightY = -1
+      @strongLinks = []
+      @weakLinks = []
 
   handlePenAction: (action) ->
     # Ignored in LINKS mode
