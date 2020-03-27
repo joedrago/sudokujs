@@ -178,6 +178,46 @@ App = (function() {
     return this.ctx.fillText("v" + version, this.canvas.width - (this.versionFont.height / 2), this.canvas.height - (this.versionFont.height / 2));
   };
 
+  App.prototype.drawArc = function(x1, y1, x2, y2, radius, color, lineWidth) {
+    var M, P1, P2, Q, dCM, dMP1, dMQ, uMP1, uMQ;
+    P1 = {
+      x: x1,
+      y: y1
+    };
+    P2 = {
+      x: x2,
+      y: y2
+    };
+    M = {
+      x: (P1.x + P2.x) / 2,
+      y: (P1.y + P2.y) / 2
+    };
+    dMP1 = Math.sqrt((P1.x - M.x) * (P1.x - M.x) + (P1.y - M.y) * (P1.y - M.y));
+    if ((radius == null) || radius < dMP1) {
+      radius = dMP1;
+    }
+    uMP1 = {
+      x: (P1.x - M.x) / dMP1,
+      y: (P1.y - M.y) / dMP1
+    };
+    uMQ = {
+      x: -uMP1.y,
+      y: uMP1.x
+    };
+    dCM = Math.sqrt(radius * radius - dMP1 * dMP1);
+    dMQ = dMP1 * dMP1 / dCM;
+    Q = {
+      x: M.x + uMQ.x * dMQ,
+      y: M.y + uMQ.y * dMQ
+    };
+    this.ctx.beginPath();
+    this.ctx.strokeStyle = color;
+    this.ctx.lineWidth = lineWidth;
+    this.ctx.moveTo(x1, y1);
+    this.ctx.arcTo(Q.x, Q.y, x2, y2, radius);
+    this.ctx.stroke();
+  };
+
   return App;
 
 })();
@@ -406,9 +446,53 @@ module.exports = MenuView;
 
 
 },{"./SudokuGenerator":4}],3:[function(require,module,exports){
-var SudokuGame, SudokuGenerator;
+var SudokuGame, SudokuGenerator, ascendingLinkSort, cellIndex, generateLinkPermutations, uniqueLinkFilter;
 
 SudokuGenerator = require('./SudokuGenerator');
+
+cellIndex = function(x, y) {
+  return y * 9 + x;
+};
+
+ascendingLinkSort = function(a, b) {
+  var a0, a1, b0, b1;
+  a0 = cellIndex(a.cells[0].x, a.cells[0].y);
+  a1 = cellIndex(a.cells[1].x, a.cells[1].y);
+  b0 = cellIndex(b.cells[0].x, b.cells[0].y);
+  b1 = cellIndex(b.cells[1].x, b.cells[1].y);
+  if (a0 > b0 || (a0 === b0 && (a1 > b1 || (a1 === b1 && ((a.strong == null) && (b.strong != null)))))) {
+    return 1;
+  } else {
+    return -1;
+  }
+};
+
+uniqueLinkFilter = function(e, i, a) {
+  var e0, e1, p, p0, p1;
+  if (i === 0) {
+    return true;
+  }
+  p = a[i - 1];
+  e0 = cellIndex(e.cells[0].x, e.cells[0].y);
+  e1 = cellIndex(e.cells[1].x, e.cells[1].y);
+  p0 = cellIndex(p.cells[0].x, p.cells[0].y);
+  p1 = cellIndex(p.cells[1].x, p.cells[1].y);
+  return e0 !== p0 || e1 !== p1;
+};
+
+generateLinkPermutations = function(cells) {
+  var count, i, j, l, links, m, ref, ref1, ref2;
+  links = [];
+  count = cells.length;
+  for (i = l = 0, ref = count - 1; 0 <= ref ? l < ref : l > ref; i = 0 <= ref ? ++l : --l) {
+    for (j = m = ref1 = i + 1, ref2 = count; ref1 <= ref2 ? m < ref2 : m > ref2; j = ref1 <= ref2 ? ++m : --m) {
+      links.push({
+        cells: [cells[i], cells[j]]
+      });
+    }
+  }
+  return links;
+};
 
 SudokuGame = (function() {
   function SudokuGame() {
@@ -553,7 +637,7 @@ SudokuGame = (function() {
   };
 
   SudokuGame.prototype.updateCells = function() {
-    var i, j, l, m, n, o, p, q;
+    var i, j, l, m, n, o, q, r;
     for (j = l = 0; l < 9; j = ++l) {
       for (i = m = 0; m < 9; i = ++m) {
         this.grid[i][j].error = false;
@@ -565,8 +649,8 @@ SudokuGame = (function() {
       }
     }
     this.solved = true;
-    for (j = p = 0; p < 9; j = ++p) {
-      for (i = q = 0; q < 9; i = ++q) {
+    for (j = q = 0; q < 9; j = ++q) {
+      for (i = r = 0; r < 9; i = ++r) {
         if (this.grid[i][j].error) {
           this.solved = false;
         }
@@ -716,8 +800,116 @@ SudokuGame = (function() {
     return this.save();
   };
 
+  SudokuGame.prototype.getLinks = function(value) {
+    var boxX, boxY, l, len, len1, link, links, m, n, o, q, r, strong, weak, x, y;
+    links = [];
+    for (y = l = 0; l < 9; y = ++l) {
+      links.push.apply(links, this.getRowLinks(y, value));
+    }
+    for (x = m = 0; m < 9; x = ++m) {
+      links.push.apply(links, this.getColumnLinks(x, value));
+    }
+    for (boxX = n = 0; n < 3; boxX = ++n) {
+      for (boxY = o = 0; o < 3; boxY = ++o) {
+        links.push.apply(links, this.getBoxLinks(boxX, boxY, value));
+      }
+    }
+    links = links.sort(ascendingLinkSort).filter(uniqueLinkFilter);
+    strong = [];
+    for (q = 0, len = links.length; q < len; q++) {
+      link = links[q];
+      if (link.strong != null) {
+        strong.push(link.cells);
+      }
+    }
+    weak = [];
+    for (r = 0, len1 = links.length; r < len1; r++) {
+      link = links[r];
+      if (link.strong == null) {
+        weak.push(link.cells);
+      }
+    }
+    return {
+      strong: strong,
+      weak: weak
+    };
+  };
+
+  SudokuGame.prototype.getRowLinks = function(y, value) {
+    var cell, cells, l, links, x;
+    cells = [];
+    for (x = l = 0; l < 9; x = ++l) {
+      cell = this.grid[x][y];
+      if (cell.value === 0 && cell.pencil[value - 1]) {
+        cells.push({
+          x: x,
+          y: y
+        });
+      }
+    }
+    if (cells.length > 1) {
+      links = generateLinkPermutations(cells);
+      if (links.length === 1) {
+        links[0].strong = true;
+      }
+    } else {
+      links = [];
+    }
+    return links;
+  };
+
+  SudokuGame.prototype.getColumnLinks = function(x, value) {
+    var cell, cells, l, links, y;
+    cells = [];
+    for (y = l = 0; l < 9; y = ++l) {
+      cell = this.grid[x][y];
+      if (cell.value === 0 && cell.pencil[value - 1]) {
+        cells.push({
+          x: x,
+          y: y
+        });
+      }
+    }
+    if (cells.length > 1) {
+      links = generateLinkPermutations(cells);
+      if (links.length === 1) {
+        links[0].strong = true;
+      }
+    } else {
+      links = [];
+    }
+    return links;
+  };
+
+  SudokuGame.prototype.getBoxLinks = function(boxX, boxY, value) {
+    var cell, cells, l, links, m, ref, ref1, ref2, ref3, sx, sy, x, y;
+    cells = [];
+    sx = boxX * 3;
+    sy = boxY * 3;
+    for (y = l = ref = sy, ref1 = sy + 3; ref <= ref1 ? l < ref1 : l > ref1; y = ref <= ref1 ? ++l : --l) {
+      for (x = m = ref2 = sx, ref3 = sx + 3; ref2 <= ref3 ? m < ref3 : m > ref3; x = ref2 <= ref3 ? ++m : --m) {
+        cell = this.grid[x][y];
+        if (cell.value === 0 && cell.pencil[value - 1]) {
+          cells.push({
+            x: x,
+            y: y
+          });
+        }
+      }
+    }
+    if (cells.length > 1) {
+      links = generateLinkPermutations(cells);
+      if (links.length === 1) {
+        links[0].strong = true;
+      }
+    } else {
+      links = [];
+    }
+    return links;
+  };
+
   SudokuGame.prototype.newGame = function(difficulty) {
-    var cell, generator, i, j, k, l, m, n, newGrid, o, p;
+    var cell, generator, i, j, k, l, m, n, newGrid, o, q;
     console.log("newGame(" + difficulty + ")");
     for (j = l = 0; l < 9; j = ++l) {
       for (i = m = 0; m < 9; i = ++m) {
@@ -733,7 +925,7 @@ SudokuGame = (function() {
     generator = new SudokuGenerator();
     newGrid = generator.generate(difficulty);
     for (j = o = 0; o < 9; j = ++o) {
-      for (i = p = 0; p < 9; i = ++p) {
+      for (i = q = 0; q < 9; i = ++q) {
         if (newGrid[i][j] !== 0) {
           this.grid[i][j].value = newGrid[i][j];
           this.grid[i][j].locked = true;
@@ -1204,7 +1396,7 @@ module.exports = SudokuGenerator;
 
 
 },{}],5:[function(require,module,exports){
-var ActionType, Color, MENU_POS_X, MENU_POS_Y, MODE_POS_X, MODE_POS_Y, PENCIL_CLEAR_POS_X, PENCIL_CLEAR_POS_Y, PENCIL_POS_X, PENCIL_POS_Y, PEN_CLEAR_POS_X, PEN_CLEAR_POS_Y, PEN_POS_X, PEN_POS_Y, REDO_POS_X, REDO_POS_Y, SudokuGame, SudokuGenerator, SudokuView, UNDO_POS_X, UNDO_POS_Y;
+var ActionType, CLEAR, Color, MENU_POS_X, MENU_POS_Y, MODE_CENTER_POS_X, MODE_END_POS_X, MODE_POS_Y, MODE_START_POS_X, ModeType, NONE, PENCIL_CLEAR_POS_X, PENCIL_CLEAR_POS_Y, PENCIL_POS_X, PENCIL_POS_Y, PEN_CLEAR_POS_X, PEN_CLEAR_POS_Y, PEN_POS_X, PEN_POS_Y, REDO_POS_X, REDO_POS_Y, SudokuGame, SudokuGenerator, SudokuView, UNDO_POS_X, UNDO_POS_Y;
 
 SudokuGenerator = require('./SudokuGenerator');
 
@@ -1230,7 +1422,11 @@ MENU_POS_X = 4;
 
 MENU_POS_Y = 13;
 
-MODE_POS_X = 4;
+MODE_START_POS_X = 2;
+
+MODE_CENTER_POS_X = 4;
+
+MODE_END_POS_X = 6;
 
 MODE_POS_Y = 9;
 
@@ -1247,7 +1443,8 @@ Color = {
   pencil: "#0000ff",
   error: "#ff0000",
   done: "#cccccc",
-  newGame: "#008833",
+  menu: "#008833",
+  links: "#cc3333",
   backgroundSelected: "#eeeeaa",
   backgroundLocked: "#eeeeee",
   backgroundLockedConflicted: "#ffffee",
@@ -1256,17 +1453,30 @@ Color = {
   backgroundError: "#ffdddd",
   modeSelect: "#777744",
   modePen: "#000000",
-  modePencil: "#0000ff"
+  modePencil: "#0000ff",
+  modeLinks: "#cc3333"
 };
 
 ActionType = {
   SELECT: 0,
   PENCIL: 1,
-  VALUE: 2,
+  PEN: 2,
   MENU: 3,
   UNDO: 4,
-  REDO: 5
+  REDO: 5,
+  MODE: 6
 };
+
+ModeType = {
+  HIGHLIGHTING: 0,
+  PENCIL: 1,
+  PEN: 2,
+  LINKS: 3
+};
+
+NONE = 0;
+
+CLEAR = 10;
 
 SudokuView = (function() {
   function SudokuView(app, canvas) {
@@ -1285,7 +1495,7 @@ SudokuView = (function() {
     fontPixelsL = Math.floor(this.cellSize * 0.8);
     this.fonts = {
       pencil: this.app.registerFont("pencil", fontPixelsS + "px saxMono, monospace"),
-      newgame: this.app.registerFont("newgame", fontPixelsM + "px saxMono, monospace"),
+      menu: this.app.registerFont("menu", fontPixelsM + "px saxMono, monospace"),
       pen: this.app.registerFont("pen", fontPixelsL + "px saxMono, monospace")
     };
     this.initActions();
@@ -1295,7 +1505,7 @@ SudokuView = (function() {
   }
 
   SudokuView.prototype.initActions = function() {
-    var i, index, j, k, l, m, n, o, p;
+    var i, index, j, k, l, m, n, o, p, q, ref, ref1;
     this.actions = new Array(9 * 15).fill(null);
     for (j = k = 0; k < 9; j = ++k) {
       for (i = l = 0; l < 9; i = ++l) {
@@ -1311,9 +1521,8 @@ SudokuView = (function() {
       for (i = n = 0; n < 3; i = ++n) {
         index = ((PEN_POS_Y + j) * 9) + (PEN_POS_X + i);
         this.actions[index] = {
-          type: ActionType.VALUE,
-          x: 1 + (j * 3) + i,
-          y: 0
+          type: ActionType.PEN,
+          value: 1 + (j * 3) + i
         };
       }
     }
@@ -1322,41 +1531,46 @@ SudokuView = (function() {
         index = ((PENCIL_POS_Y + j) * 9) + (PENCIL_POS_X + i);
         this.actions[index] = {
           type: ActionType.PENCIL,
-          x: 1 + (j * 3) + i,
-          y: 0
+          value: 1 + (j * 3) + i
         };
       }
     }
     index = (PEN_CLEAR_POS_Y * 9) + PEN_CLEAR_POS_X;
     this.actions[index] = {
-      type: ActionType.VALUE,
-      x: 10,
-      y: 0
+      type: ActionType.PEN,
+      value: CLEAR
     };
     index = (PENCIL_CLEAR_POS_Y * 9) + PENCIL_CLEAR_POS_X;
     this.actions[index] = {
       type: ActionType.PENCIL,
-      x: 10,
-      y: 0
+      value: CLEAR
     };
     index = (MENU_POS_Y * 9) + MENU_POS_X;
     this.actions[index] = {
-      type: ActionType.MENU,
-      x: 0,
-      y: 0
+      type: ActionType.MENU
     };
     index = (UNDO_POS_Y * 9) + UNDO_POS_X;
     this.actions[index] = {
-      type: ActionType.UNDO,
-      x: 0,
-      y: 0
+      type: ActionType.UNDO
     };
     index = (REDO_POS_Y * 9) + REDO_POS_X;
     this.actions[index] = {
-      type: ActionType.REDO,
-      x: 0,
-      y: 0
+      type: ActionType.REDO
     };
+    for (i = q = ref = (MODE_POS_Y * 9) + MODE_START_POS_X, ref1 = (MODE_POS_Y * 9) + MODE_END_POS_X; ref <= ref1 ? q <= ref1 : q >= ref1; i = ref <= ref1 ? ++q : --q) {
+      this.actions[i] = {
+        type: ActionType.MODE
+      };
+    }
+  };
+
+  SudokuView.prototype.resetState = function() {
+    this.mode = ModeType.HIGHLIGHTING;
+    this.penValue = NONE;
+    this.highlightX = -1;
+    this.highlightY = -1;
+    this.strongLinks = [];
+    return this.weakLinks = [];
   };
 
   SudokuView.prototype.resetState = function() {
@@ -1392,8 +1606,18 @@ SudokuView = (function() {
     }
   };
 
+  SudokuView.prototype.drawLink = function(startX, startY, endX, endY, color, lineWidth) {
+    var r, x1, x2, y1, y2;
+    x1 = (startX + 0.5) * this.cellSize;
+    y1 = (startY + 0.5) * this.cellSize;
+    x2 = (endX + 0.5) * this.cellSize;
+    y2 = (endY + 0.5) * this.cellSize;
+    r = 2.2 * Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+    return this.app.drawArc(x1, y1, x2, y2, r, color, lineWidth);
+  };
+
   SudokuView.prototype.draw = function() {
-    var backgroundColor, cell, currentValue, currentValueString, done, font, i, j, k, l, m, modeColor, modeText, n, pencilBackgroundColor, pencilColor, text, textColor, valueBackgroundColor, valueColor;
+    var backgroundColor, cell, currentValue, currentValueString, done, font, i, j, k, l, len, len1, link, m, modeColor, modeText, n, o, p, pencilBackgroundColor, pencilColor, ref, ref1, text, textColor, valueBackgroundColor, valueColor;
     console.log("draw()");
     this.app.drawFill(0, 0, this.canvas.width, this.canvas.height, "black");
     this.app.drawFill(0, 0, this.cellSize * 9, this.canvas.height, "white");
@@ -1413,33 +1637,47 @@ SudokuView = (function() {
             text = String(cell.value);
           }
         }
+        if (cell.error) {
+          textColor = Color.error;
+        }
         if (cell.locked) {
           backgroundColor = Color.backgroundLocked;
         }
-        if ((this.highlightX !== -1) && (this.highlightY !== -1)) {
-          if ((i === this.highlightX) && (j === this.highlightY)) {
-            if (cell.locked) {
-              backgroundColor = Color.backgroundLockedSelected;
-            } else {
-              backgroundColor = Color.backgroundSelected;
-            }
-          } else if (this.conflicts(i, j, this.highlightX, this.highlightY)) {
-            if (cell.locked) {
-              backgroundColor = Color.backgroundLockedConflicted;
-            } else {
-              backgroundColor = Color.backgroundConflicted;
+        if (this.mode === ModeType.HIGHLIGHTING) {
+          if ((this.highlightX !== -1) && (this.highlightY !== -1)) {
+            if ((i === this.highlightX) && (j === this.highlightY)) {
+              if (cell.locked) {
+                backgroundColor = Color.backgroundLockedSelected;
+              } else {
+                backgroundColor = Color.backgroundSelected;
+              }
+            } else if (this.conflicts(i, j, this.highlightX, this.highlightY)) {
+              if (cell.locked) {
+                backgroundColor = Color.backgroundLockedConflicted;
+              } else {
+                backgroundColor = Color.backgroundConflicted;
+              }
             }
           }
-        }
-        if (cell.error) {
-          textColor = Color.error;
         }
         this.drawCell(i, j, backgroundColor, text, font, textColor);
       }
     }
+    if (this.mode === ModeType.LINKS) {
+      ref = this.strongLinks;
+      for (m = 0, len = ref.length; m < len; m++) {
+        link = ref[m];
+        this.drawLink(link[0].x, link[0].y, link[1].x, link[1].y, Color.links, this.lineWidthThick);
+      }
+      ref1 = this.weakLinks;
+      for (n = 0, len1 = ref1.length; n < len1; n++) {
+        link = ref1[n];
+        this.drawLink(link[0].x, link[0].y, link[1].x, link[1].y, Color.links, this.lineWidthThin);
+      }
+    }
     done = this.game.done();
-    for (j = m = 0; m < 3; j = ++m) {
-      for (i = n = 0; n < 3; i = ++n) {
+    for (j = o = 0; o < 3; j = ++o) {
+      for (i = p = 0; p < 3; i = ++p) {
         currentValue = (j * 3) + i + 1;
         currentValueString = String(currentValue);
         valueColor = Color.value;
@@ -1451,7 +1689,7 @@ SudokuView = (function() {
         valueBackgroundColor = null;
         pencilBackgroundColor = null;
         if (this.penValue === currentValue) {
-          if (this.isPencil) {
+          if (this.mode === ModeType.PENCIL || this.mode === ModeType.LINKS) {
             pencilBackgroundColor = Color.backgroundSelected;
           } else {
             valueBackgroundColor = Color.backgroundSelected;
@@ -1463,8 +1701,8 @@ SudokuView = (function() {
     }
     valueBackgroundColor = null;
     pencilBackgroundColor = null;
-    if (this.penValue === 10) {
-      if (this.isPencil) {
+    if (this.penValue === CLEAR) {
+      if (this.mode === ModeType.PENCIL) {
         pencilBackgroundColor = Color.backgroundSelected;
       } else {
         valueBackgroundColor = Color.backgroundSelected;
@@ -1472,20 +1710,30 @@ SudokuView = (function() {
     }
     this.drawCell(PEN_CLEAR_POS_X, PEN_CLEAR_POS_Y, valueBackgroundColor, "C", this.fonts.pen, Color.error);
     this.drawCell(PENCIL_CLEAR_POS_X, PENCIL_CLEAR_POS_Y, pencilBackgroundColor, "C", this.fonts.pen, Color.error);
-    if (this.penValue === 0) {
-      modeColor = Color.modeSelect;
-      modeText = "Highlighting";
-    } else {
-      modeColor = this.isPencil ? Color.modePencil : Color.modePen;
-      modeText = this.isPencil ? "Pencil" : "Pen";
+    switch (this.mode) {
+      case ModeType.HIGHLIGHTING:
+        modeColor = Color.modeSelect;
+        modeText = "Highlighting";
+        break;
+      case ModeType.PENCIL:
+        modeColor = Color.modePencil;
+        modeText = "Pencil";
+        break;
+      case ModeType.PEN:
+        modeColor = Color.modePen;
+        modeText = "Pen";
+        break;
+      case ModeType.LINKS:
+        modeColor = Color.modeLinks;
+        modeText = "Links";
     }
-    this.drawCell(MODE_POS_X, MODE_POS_Y, null, modeText, this.fonts.newgame, modeColor);
-    this.drawCell(MENU_POS_X, MENU_POS_Y, null, "Menu", this.fonts.newgame, Color.newGame);
+    this.drawCell(MODE_CENTER_POS_X, MODE_POS_Y, null, modeText, this.fonts.menu, modeColor);
+    this.drawCell(MENU_POS_X, MENU_POS_Y, null, "Menu", this.fonts.menu, Color.menu);
     if (this.game.undoJournal.length > 0) {
-      this.drawCell(UNDO_POS_X, UNDO_POS_Y, null, "\u25c4", this.fonts.newgame, Color.newGame);
+      this.drawCell(UNDO_POS_X, UNDO_POS_Y, null, "\u25c4", this.fonts.menu, Color.menu);
     }
     if (this.game.redoJournal.length > 0) {
-      this.drawCell(REDO_POS_X, REDO_POS_Y, null, "\u25ba", this.fonts.newgame, Color.newGame);
+      this.drawCell(REDO_POS_X, REDO_POS_Y, null, "\u25ba", this.fonts.menu, Color.menu);
     }
     this.drawGrid(0, 0, 9, this.game.solved);
     this.drawGrid(PEN_POS_X, PEN_POS_Y, 3);
@@ -1518,6 +1766,107 @@ SudokuView = (function() {
     return this.game.holeCount();
   };
 
+  SudokuView.prototype.handleSelectAction = function(action) {
+    switch (this.mode) {
+      case ModeType.HIGHLIGHTING:
+        if ((this.highlightX === action.x) && (this.highlightY === action.y)) {
+          this.highlightX = -1;
+          return this.highlightY = -1;
+        } else {
+          this.highlightX = action.x;
+          return this.highlightY = action.y;
+        }
+        break;
+      case ModeType.PENCIL:
+        if (this.penValue === CLEAR) {
+          return this.game.clearPencil(action.x, action.y);
+        } else if (this.penValue !== NONE) {
+          return this.game.togglePencil(action.x, action.y, this.penValue);
+        }
+        break;
+      case ModeType.PEN:
+        if (this.penValue === CLEAR) {
+          return this.game.setValue(action.x, action.y, 0);
+        } else if (this.penValue !== NONE) {
+          return this.game.setValue(action.x, action.y, this.penValue);
+        }
+    }
+  };
+
+  SudokuView.prototype.handlePencilAction = function(action) {
+    var ref;
+    if (this.mode === ModeType.LINKS) {
+      if (action.value === CLEAR) {
+        this.penValue = NONE;
+        this.strongLinks = [];
+        return this.weakLinks = [];
+      } else {
+        this.penValue = action.value;
+        return ref = this.game.getLinks(action.value), this.strongLinks = ref.strong, this.weakLinks = ref.weak, ref;
+      }
+    } else if (this.mode === ModeType.PENCIL && (this.penValue === action.value)) {
+      this.mode = ModeType.HIGHLIGHTING;
+      return this.penValue = NONE;
+    } else {
+      this.mode = ModeType.PENCIL;
+      this.penValue = action.value;
+      this.highlightX = -1;
+      this.highlightY = -1;
+      this.strongLinks = [];
+      return this.weakLinks = [];
+    }
+  };
+
+  SudokuView.prototype.handlePenAction = function(action) {
+    if (this.mode === ModeType.LINKS) {
+      return;
+    }
+    if (this.mode === ModeType.PEN && (this.penValue === action.value)) {
+      this.mode = ModeType.HIGHLIGHTING;
+      this.penValue = NONE;
+    } else {
+      this.mode = ModeType.PEN;
+      this.penValue = action.value;
+    }
+    this.highlightX = -1;
+    this.highlightY = -1;
+    this.strongLinks = [];
+    return this.weakLinks = [];
+  };
+
+  SudokuView.prototype.handleUndoAction = function() {
+    if (this.mode !== ModeType.LINKS) {
+      return this.game.undo();
+    }
+  };
+
+  SudokuView.prototype.handleRedoAction = function() {
+    if (this.mode !== ModeType.LINKS) {
+      return this.game.redo();
+    }
+  };
+
+  SudokuView.prototype.handleModeAction = function() {
+    switch (this.mode) {
+      case ModeType.HIGHLIGHTING:
+        this.mode = ModeType.LINKS;
+        break;
+      case ModeType.PENCIL:
+        this.mode = ModeType.PEN;
+        break;
+      case ModeType.PEN:
+        this.mode = ModeType.HIGHLIGHTING;
+        break;
+      case ModeType.LINKS:
+        this.mode = ModeType.PENCIL;
+    }
+    this.highlightX = -1;
+    this.highlightY = -1;
+    this.penValue = NONE;
+    this.strongLinks = [];
+    return this.weakLinks = [];
+  };
+
   SudokuView.prototype.click = function(x, y) {
     var action, index;
     x = Math.floor(x / this.cellSize);
@@ -1527,62 +1876,36 @@ SudokuView = (function() {
       action = this.actions[index];
       if (action !== null) {
         console.log("Action: ", action);
+        if (action.type === ActionType.MENU) {
+          this.app.switchView("menu");
+          return;
+        }
         switch (action.type) {
           case ActionType.SELECT:
-            if (this.penValue === 0) {
-              if ((this.highlightX === action.x) && (this.highlightY === action.y)) {
-                this.highlightX = -1;
-                this.highlightY = -1;
-              } else {
-                this.highlightX = action.x;
-                this.highlightY = action.y;
-              }
-            } else {
-              if (this.isPencil) {
-                if (this.penValue === 10) {
-                  this.game.clearPencil(action.x, action.y);
-                } else {
-                  this.game.togglePencil(action.x, action.y, this.penValue);
-                }
-              } else {
-                if (this.penValue === 10) {
-                  this.game.setValue(action.x, action.y, 0);
-                } else {
-                  this.game.setValue(action.x, action.y, this.penValue);
-                }
-              }
-            }
+            this.handleSelectAction(action);
             break;
           case ActionType.PENCIL:
-            if (this.isPencil && (this.penValue === action.x)) {
-              this.penValue = 0;
-            } else {
-              this.isPencil = true;
-              this.penValue = action.x;
-            }
+            this.handlePencilAction(action);
             break;
-          case ActionType.VALUE:
-            if (!this.isPencil && (this.penValue === action.x)) {
-              this.penValue = 0;
-            } else {
-              this.isPencil = false;
-              this.penValue = action.x;
-            }
+          case ActionType.PEN:
+            this.handlePenAction(action);
             break;
-          case ActionType.MENU:
-            this.app.switchView("menu");
-            return;
           case ActionType.UNDO:
-            this.game.undo();
+            this.handleUndoAction();
             break;
           case ActionType.REDO:
-            this.game.redo();
+            this.handleRedoAction();
+            break;
+          case ActionType.MODE:
+            this.handleModeAction();
         }
       } else {
+        this.mode = ModeType.HIGHLIGHTING;
         this.highlightX = -1;
         this.highlightY = -1;
-        this.penValue = 0;
-        this.isPencil = false;
+        this.penValue = NONE;
+        this.strongLinks = [];
+        this.weakLinks = [];
       }
       return this.draw();
     }

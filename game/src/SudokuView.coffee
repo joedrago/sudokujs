@@ -14,7 +14,9 @@ PENCIL_CLEAR_POS_Y = 13
 MENU_POS_X = 4
 MENU_POS_Y = 13
 
-MODE_POS_X = 4
+MODE_START_POS_X = 2
+MODE_CENTER_POS_X = 4
+MODE_END_POS_X = 6
 MODE_POS_Y = 9
 
 UNDO_POS_X = 0
@@ -27,7 +29,8 @@ Color =
   pencil: "#0000ff"
   error: "#ff0000"
   done: "#cccccc"
-  newGame: "#008833"
+  menu: "#008833"
+  links: "#cc3333"
   backgroundSelected: "#eeeeaa"
   backgroundLocked: "#eeeeee"
   backgroundLockedConflicted: "#ffffee"
@@ -37,14 +40,26 @@ Color =
   modeSelect: "#777744"
   modePen: "#000000"
   modePencil: "#0000ff"
+  modeLinks: "#cc3333"
 
 ActionType =
   SELECT: 0
   PENCIL: 1
-  VALUE: 2
+  PEN: 2
   MENU: 3
   UNDO: 4
   REDO: 5
+  MODE: 6
+
+ModeType =
+  HIGHLIGHTING: 0
+  PENCIL: 1
+  PEN: 2
+  LINKS: 3
+
+# Special pen/pencil values
+NONE = 0
+CLEAR = 10
 
 class SudokuView
   # -------------------------------------------------------------------------------------
@@ -69,7 +84,7 @@ class SudokuView
     # init fonts
     @fonts =
       pencil:  @app.registerFont("pencil",  "#{fontPixelsS}px saxMono, monospace")
-      newgame: @app.registerFont("newgame", "#{fontPixelsM}px saxMono, monospace")
+      menu:    @app.registerFont("menu",    "#{fontPixelsM}px saxMono, monospace")
       pen:     @app.registerFont("pen",     "#{fontPixelsL}px saxMono, monospace")
 
     @initActions()
@@ -91,40 +106,46 @@ class SudokuView
     for j in [0...3]
       for i in [0...3]
         index = ((PEN_POS_Y + j) * 9) + (PEN_POS_X + i)
-        @actions[index] = { type: ActionType.VALUE, x: 1 + (j * 3) + i, y: 0 }
+        @actions[index] = { type: ActionType.PEN, value: 1 + (j * 3) + i }
 
     for j in [0...3]
       for i in [0...3]
         index = ((PENCIL_POS_Y + j) * 9) + (PENCIL_POS_X + i)
-        @actions[index] = { type: ActionType.PENCIL, x: 1 + (j * 3) + i, y: 0 }
+        @actions[index] = { type: ActionType.PENCIL, value: 1 + (j * 3) + i }
 
-    # Value clear button
+    # Pen clear button
     index = (PEN_CLEAR_POS_Y * 9) + PEN_CLEAR_POS_X
-    @actions[index] = { type: ActionType.VALUE, x: 10, y: 0 }
+    @actions[index] = { type: ActionType.PEN, value: CLEAR }
 
     # Pencil clear button
     index = (PENCIL_CLEAR_POS_Y * 9) + PENCIL_CLEAR_POS_X
-    @actions[index] = { type: ActionType.PENCIL, x: 10, y: 0 }
+    @actions[index] = { type: ActionType.PENCIL, value: CLEAR }
 
     # Menu button
     index = (MENU_POS_Y * 9) + MENU_POS_X
-    @actions[index] = { type: ActionType.MENU, x: 0, y: 0 }
+    @actions[index] = { type: ActionType.MENU }
 
     # Undo button
     index = (UNDO_POS_Y * 9) + UNDO_POS_X
-    @actions[index] = { type: ActionType.UNDO, x: 0, y: 0 }
+    @actions[index] = { type: ActionType.UNDO }
 
     # Redo button
     index = (REDO_POS_Y * 9) + REDO_POS_X
-    @actions[index] = { type: ActionType.REDO, x: 0, y: 0 }
+    @actions[index] = { type: ActionType.REDO }
+
+    # Mode switch
+    for i in [(MODE_POS_Y*9)+MODE_START_POS_X..(MODE_POS_Y*9)+MODE_END_POS_X]
+      @actions[i] = { type: ActionType.MODE }
 
     return
 
   resetState: ->
-    @penValue = 0
-    @isPencil = false
+    @mode = ModeType.HIGHLIGHTING
+    @penValue = NONE
     @highlightX = -1
     @highlightY = -1
+    @strongLinks = []
+    @weakLinks = []
 
   # -------------------------------------------------------------------------------------
   # Rendering
@@ -148,8 +169,15 @@ class SudokuView
 
       # Vertical lines
       @app.drawLine(@cellSize * (originX + i), @cellSize * (originY + 0), @cellSize * (originX + i), @cellSize * (originY + size), color, lineWidth)
-
     return
+
+  drawLink: (startX, startY, endX, endY, color, lineWidth) ->
+    x1 = (startX + 0.5) * @cellSize
+    y1 = (startY + 0.5) * @cellSize
+    x2 = (endX + 0.5) * @cellSize
+    y2 = (endY + 0.5) * @cellSize
+    r = 2.2 * Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)) # 2.2 gives the most curve without going off the board
+    @app.drawArc(x1, y1, x2, y2, r, color, lineWidth)
 
   draw: ->
     console.log "draw()"
@@ -160,10 +188,12 @@ class SudokuView
     # Make white phone-shaped background
     @app.drawFill(0, 0, @cellSize * 9, @canvas.height, "white")
 
+    # Draw board numbers
     for j in [0...9]
       for i in [0...9]
         cell = @game.grid[i][j]
 
+        # Determine text attributes
         backgroundColor = null
         font = @fonts.pen
         textColor = Color.value
@@ -176,26 +206,36 @@ class SudokuView
           if cell.value > 0
             text = String(cell.value)
 
-        if cell.locked
-          backgroundColor = Color.backgroundLocked
-
-        if (@highlightX != -1) && (@highlightY != -1)
-          if (i == @highlightX) && (j == @highlightY)
-            if cell.locked
-              backgroundColor = Color.backgroundLockedSelected
-            else
-              backgroundColor = Color.backgroundSelected
-          else if @conflicts(i, j, @highlightX, @highlightY)
-            if cell.locked
-              backgroundColor = Color.backgroundLockedConflicted
-            else
-              backgroundColor = Color.backgroundConflicted
-
         if cell.error
           textColor = Color.error
 
+        # Determine background color
+        if cell.locked
+          backgroundColor = Color.backgroundLocked
+
+        if @mode is ModeType.HIGHLIGHTING
+          if (@highlightX != -1) && (@highlightY != -1)
+            if (i == @highlightX) && (j == @highlightY)
+              if cell.locked
+                backgroundColor = Color.backgroundLockedSelected
+              else
+                backgroundColor = Color.backgroundSelected
+            else if @conflicts(i, j, @highlightX, @highlightY)
+              if cell.locked
+                backgroundColor = Color.backgroundLockedConflicted
+              else
+                backgroundColor = Color.backgroundConflicted
+
         @drawCell(i, j, backgroundColor, text, font, textColor)
 
+    # Draw links in LINKS mode
+    if @mode is ModeType.LINKS
+      for link in @strongLinks
+        @drawLink(link[0].x, link[0].y, link[1].x, link[1].y, Color.links, @lineWidthThick)
+      for link in @weakLinks
+        @drawLink(link[0].x, link[0].y, link[1].x, link[1].y, Color.links, @lineWidthThin)
+
+    # Draw pen and pencil number buttons
     done = @game.done()
     for j in [0...3]
       for i in [0...3]
@@ -210,7 +250,7 @@ class SudokuView
         valueBackgroundColor = null
         pencilBackgroundColor = null
         if @penValue == currentValue
-          if @isPencil
+          if @mode is ModeType.PENCIL or @mode is ModeType.LINKS
             pencilBackgroundColor = Color.backgroundSelected
           else
             valueBackgroundColor = Color.backgroundSelected
@@ -218,10 +258,11 @@ class SudokuView
         @drawCell(PEN_POS_X + i, PEN_POS_Y + j, valueBackgroundColor, currentValueString, @fonts.pen, valueColor)
         @drawCell(PENCIL_POS_X + i, PENCIL_POS_Y + j, pencilBackgroundColor, currentValueString, @fonts.pen, pencilColor)
 
+    # Draw pen and pencil CLEAR buttons
     valueBackgroundColor = null
     pencilBackgroundColor = null
-    if @penValue == 10
-        if @isPencil
+    if @penValue == CLEAR
+        if @mode is ModeType.PENCIL
             pencilBackgroundColor = Color.backgroundSelected
         else
             valueBackgroundColor = Color.backgroundSelected
@@ -229,17 +270,25 @@ class SudokuView
     @drawCell(PEN_CLEAR_POS_X, PEN_CLEAR_POS_Y, valueBackgroundColor, "C", @fonts.pen, Color.error)
     @drawCell(PENCIL_CLEAR_POS_X, PENCIL_CLEAR_POS_Y, pencilBackgroundColor, "C", @fonts.pen, Color.error)
 
-    if @penValue == 0
-      modeColor = Color.modeSelect
-      modeText = "Highlighting"
-    else
-      modeColor = if @isPencil then Color.modePencil else Color.modePen
-      modeText = if @isPencil then "Pencil" else "Pen"
-    @drawCell(MODE_POS_X, MODE_POS_Y, null, modeText, @fonts.newgame, modeColor)
+    # Draw mode
+    switch @mode
+      when ModeType.HIGHLIGHTING
+        modeColor = Color.modeSelect
+        modeText = "Highlighting"
+      when ModeType.PENCIL
+        modeColor = Color.modePencil
+        modeText = "Pencil"
+      when ModeType.PEN
+        modeColor = Color.modePen
+        modeText = "Pen"
+      when ModeType.LINKS
+        modeColor = Color.modeLinks
+        modeText = "Links"
+    @drawCell(MODE_CENTER_POS_X, MODE_POS_Y, null, modeText, @fonts.menu, modeColor)
 
-    @drawCell(MENU_POS_X, MENU_POS_Y, null, "Menu", @fonts.newgame, Color.newGame)
-    @drawCell(UNDO_POS_X, UNDO_POS_Y, null, "\u{25c4}", @fonts.newgame, Color.newGame) if (@game.undoJournal.length > 0)
-    @drawCell(REDO_POS_X, REDO_POS_Y, null, "\u{25ba}", @fonts.newgame, Color.newGame) if (@game.redoJournal.length > 0)
+    @drawCell(MENU_POS_X, MENU_POS_Y, null, "Menu", @fonts.menu, Color.menu)
+    @drawCell(UNDO_POS_X, UNDO_POS_Y, null, "\u{25c4}", @fonts.menu, Color.menu) if (@game.undoJournal.length > 0)
+    @drawCell(REDO_POS_X, REDO_POS_Y, null, "\u{25ba}", @fonts.menu, Color.menu) if (@game.redoJournal.length > 0)
 
     # Make the grids
     @drawGrid(0, 0, 9, @game.solved)
@@ -270,6 +319,96 @@ class SudokuView
   holeCount: ->
     return @game.holeCount()
 
+  handleSelectAction: (action) ->
+    switch @mode
+      when ModeType.HIGHLIGHTING
+        if (@highlightX == action.x) && (@highlightY == action.y)
+          @highlightX = -1
+          @highlightY = -1
+        else
+          @highlightX = action.x
+          @highlightY = action.y
+      when ModeType.PENCIL
+        if @penValue == CLEAR
+          @game.clearPencil(action.x, action.y)
+        else if @penValue != NONE
+          @game.togglePencil(action.x, action.y, @penValue)
+      when ModeType.PEN
+        if @penValue == CLEAR
+          @game.setValue(action.x, action.y, 0)
+        else if @penValue != NONE
+          @game.setValue(action.x, action.y, @penValue)
+
+  handlePencilAction: (action) ->
+    # In LINKS mode, all links associated with the number are shown. CLEAR shows nothing.
+    if @mode is ModeType.LINKS
+      if (action.value == CLEAR)
+        @penValue = NONE
+        @strongLinks = []
+        @weakLinks = []
+      else
+        @penValue = action.value
+        { strong: @strongLinks, weak: @weakLinks } = @game.getLinks(action.value)
+
+    # In PENCIL mode, the mode is changed to HIGHLIGHTING if the selected value is already current
+    else if @mode is ModeType.PENCIL and (@penValue == action.value)
+      @mode = ModeType.HIGHLIGHTING
+      @penValue = NONE
+
+    # Otherwise, the mode is switched to (or remains as) PENCIL using the selected value
+    else
+      @mode = ModeType.PENCIL
+      @penValue = action.value
+
+      # Make sure any highlighting is off and links are cleared.
+      @highlightX = -1
+      @highlightY = -1
+      @strongLinks = []
+      @weakLinks = []
+
+  handlePenAction: (action) ->
+    # Ignored in LINKS mode
+    if @mode is ModeType.LINKS
+      return
+
+    # In PEN mode, the mode is changed to HIGHLIGHTING if the selected value is already current
+    if @mode is ModeType.PEN and (@penValue == action.value)
+      @mode = ModeType.HIGHLIGHTING
+      @penValue = NONE
+
+    # Otherwise, the mode is switched to (or remains as) PEN using the selected value
+    else
+      @mode = ModeType.PEN
+      @penValue = action.value
+
+      # Make sure any highlighting is off and links are cleared.
+    @highlightX = -1
+    @highlightY = -1
+    @strongLinks = []
+    @weakLinks = []
+
+  handleUndoAction: ->
+    @game.undo() if @mode isnt ModeType.LINKS
+    
+  handleRedoAction: ->
+    @game.redo() if @mode isnt ModeType.LINKS
+    
+  handleModeAction: ->
+    switch @mode
+      when ModeType.HIGHLIGHTING
+        @mode = ModeType.LINKS
+      when ModeType.PENCIL
+        @mode = ModeType.PEN
+      when ModeType.PEN
+        @mode = ModeType.HIGHLIGHTING
+      when ModeType.LINKS
+        @mode = ModeType.PENCIL
+    @highlightX = -1
+    @highlightY = -1
+    @penValue = NONE
+    @strongLinks = []
+    @weakLinks = []
+    
   click: (x, y) ->
     # console.log "click #{x}, #{y}"
     x = Math.floor(x / @cellSize)
@@ -280,57 +419,26 @@ class SudokuView
         action = @actions[index]
         if action != null
           console.log "Action: ", action
-          switch action.type
-            when ActionType.SELECT
-              if @penValue == 0
-                if (@highlightX == action.x) && (@highlightY == action.y)
-                  @highlightX = -1
-                  @highlightY = -1
-                else
-                  @highlightX = action.x
-                  @highlightY = action.y
-              else
-                if @isPencil
-                  if @penValue == 10
-                    @game.clearPencil(action.x, action.y)
-                  else
-                    @game.togglePencil(action.x, action.y, @penValue)
-                else
-                  if @penValue == 10
-                    @game.setValue(action.x, action.y, 0)
-                  else
-                    @game.setValue(action.x, action.y, @penValue)
 
-            when ActionType.PENCIL
-              if @isPencil and  (@penValue == action.x)
-                @penValue = 0
-              else
-                @isPencil = true
-                @penValue = action.x
+          if action.type is ActionType.MENU
+            @app.switchView("menu")
+            return
 
-            when ActionType.VALUE
-              if not @isPencil and (@penValue == action.x)
-                @penValue = 0
-              else
-                @isPencil = false
-                @penValue = action.x
-
-            when ActionType.MENU
-              @app.switchView("menu")
-              return
-              
-            when ActionType.UNDO
-              @game.undo()
-              
-            when ActionType.REDO
-              @game.redo()
-
+          switch action.type 
+            when ActionType.SELECT then @handleSelectAction(action)
+            when ActionType.PENCIL then @handlePencilAction(action)
+            when ActionType.PEN then @handlePenAction(action)
+            when ActionType.UNDO then @handleUndoAction()
+            when ActionType.REDO then @handleRedoAction()
+            when ActionType.MODE then @handleModeAction()
         else
-          # no action
+          # no action, default to highlighting mode
+          @mode = ModeType.HIGHLIGHTING
           @highlightX = -1
           @highlightY = -1
-          @penValue = 0
-          @isPencil = false
+          @penValue = NONE
+          @strongLinks = []
+          @weakLinks = []
 
         @draw()
 
