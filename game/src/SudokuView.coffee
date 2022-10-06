@@ -151,12 +151,55 @@ class SudokuView
   # -------------------------------------------------------------------------------------
   # Rendering
 
+  chooseBackgroundColor: (i, j, locked) ->
+    color = null
+    if locked
+      color = Color.backgroundLocked
+
+    if @mode is ModeType.HIGHLIGHTING
+      if (@highlightX != -1) && (@highlightY != -1)
+        if (i == @highlightX) && (j == @highlightY)
+          if locked
+            color = Color.backgroundLockedSelected
+          else
+            color = Color.backgroundSelected
+        else if @conflicts(i, j, @highlightX, @highlightY)
+          if locked
+            color = Color.backgroundLockedConflicted
+          else
+            color = Color.backgroundConflicted
+    return color
+
   drawCell: (x, y, backgroundColor, s, font, color) ->
     px = x * @cellSize
     py = y * @cellSize
     if backgroundColor != null
       @app.drawFill(px, py, @cellSize, @cellSize, backgroundColor)
     @app.drawTextCentered(s, px + (@cellSize / 2), py + (@cellSize / 2), font, color)
+    return
+
+  drawFlashCell: (x, y) ->
+    px = x * @cellSize
+    py = y * @cellSize
+    @app.drawFill(px, py, @cellSize, @cellSize, "black")
+    return
+
+  drawUnsolvedCell: (x, y, backgroundColor) ->
+    px = x * @cellSize
+    py = y * @cellSize
+    text = @game.pencilString(i, j)
+    if backgroundColor != null
+      @app.drawFill(px, py, @cellSize, @cellSize, backgroundColor)
+    @app.drawTextCentered(text, px + (@cellSize / 2), py + (@cellSize / 2), @fonts.pencil, Color.pencil)
+    return
+
+  drawSolvedCell: (x, y, backgroundColor, color, value) ->
+    px = x * @cellSize
+    py = y * @cellSize
+    if backgroundColor != null
+      @app.drawFill(px, py, @cellSize, @cellSize, backgroundColor)
+    @app.drawTextCentered(String(value), px + (@cellSize / 2), py + (@cellSize / 2), @fonts.pen, color)
+    return
 
   drawGrid: (originX, originY, size, solved = false) ->
     for i in [0..size]
@@ -194,47 +237,21 @@ class SudokuView
     # Draw board numbers
     for j in [0...9]
       for i in [0...9]
-        if (i != flashX) || (j != flashY)
+        if (i == flashX) && (j == flashY)
+          # Draw flash
+          @drawFlashCell(i, j)
+        else
+          # Draw solved or unsolved cell
           cell = @game.grid[i][j]
 
-          # Determine text attributes
-          backgroundColor = null
-          font = @fonts.pen
-          textColor = Color.value
-          text = ""
-          if cell.value == 0
-            font = @fonts.pencil
-            textColor = Color.pencil
-            text = @game.pencilString(i, j)
-          else
-            if cell.value > 0
-              text = String(cell.value)
-
-          if cell.error
-            textColor = Color.error
-
           # Determine background color
-          if cell.locked
-            backgroundColor = Color.backgroundLocked
+          backgroundColor = @chooseBackgroundColor(i, j, cell.locked)
 
-          if @mode is ModeType.HIGHLIGHTING
-            if (@highlightX != -1) && (@highlightY != -1)
-              if (i == @highlightX) && (j == @highlightY)
-                if cell.locked
-                  backgroundColor = Color.backgroundLockedSelected
-                else
-                  backgroundColor = Color.backgroundSelected
-              else if @conflicts(i, j, @highlightX, @highlightY)
-                if cell.locked
-                  backgroundColor = Color.backgroundLockedConflicted
-                else
-                  backgroundColor = Color.backgroundConflicted
-        else
-          backgroundColor = "black"
-          font = @fonts.pen
-          textColor = "black"
-          text = ""
-        @drawCell(i, j, backgroundColor, text, font, textColor)
+          if cell.value == 0
+            @drawUnsolvedCell(i, j, backgroundColor)
+          else
+            textColor = if cell.error then Color.error else Color.value
+            @drawSolvedCell(i, j, backgroundColor, textColor, cell.value)
 
     # Draw links in LINKS mode
     if @mode is ModeType.LINKS
@@ -400,10 +417,10 @@ class SudokuView
 
   handleUndoAction: ->
     return @game.undo() if @mode isnt ModeType.LINKS
-    
+
   handleRedoAction: ->
     return @game.redo() if @mode isnt ModeType.LINKS
-    
+
   handleModeAction: ->
     switch @mode
       when ModeType.HIGHLIGHTING
@@ -419,7 +436,7 @@ class SudokuView
     @penValue = NONE
     @strongLinks = []
     @weakLinks = []
-    
+
   click: (x, y) ->
     # console.log "click #{x}, #{y}"
     x = Math.floor(x / @cellSize)
@@ -437,7 +454,7 @@ class SudokuView
             @app.switchView("menu")
             return
 
-          switch action.type 
+          switch action.type
             when ActionType.SELECT then [ flashX, flashY ] = @handleSelectAction(action)
             when ActionType.PENCIL then @handlePencilAction(action)
             when ActionType.PEN then @handlePenAction(action)
