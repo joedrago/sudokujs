@@ -151,7 +151,7 @@ class SudokuView
   # -------------------------------------------------------------------------------------
   # Rendering
 
-  chooseBackgroundColor: (i, j, locked) ->
+  chooseBackgroundColor: (i, j, value, locked) ->
     color = null
     if locked
       color = Color.backgroundLocked
@@ -168,6 +168,11 @@ class SudokuView
             color = Color.backgroundLockedConflicted
           else
             color = Color.backgroundConflicted
+    if @mode is ModeType.PEN and @penValue == value and value != 0
+      if locked
+        color = Color.backgroundLockedSelected
+      else
+        color = Color.backgroundSelected
     return color
 
   drawCell: (x, y, backgroundColor, s, font, color) ->
@@ -248,7 +253,7 @@ class SudokuView
           cell = @game.grid[i][j]
 
           # Determine background color
-          backgroundColor = @chooseBackgroundColor(i, j, cell.locked)
+          backgroundColor = @chooseBackgroundColor(i, j, cell.value, cell.locked)
 
           if cell.value == 0
             marks = @game.pencilMarks(i, j)
