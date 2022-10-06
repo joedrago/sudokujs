@@ -14,7 +14,7 @@ ascendingLinkSort = (a, b) ->
 # Note strength is not compared
 uniqueLinkFilter = (e, i, a) ->
   if i == 0
-    return true 
+    return true
   p = a[i-1]
   e0 = cellIndex(e.cells[0].x, e.cells[0].y)
   e1 = cellIndex(e.cells[1].x, e.cells[1].y)
@@ -102,7 +102,7 @@ class SudokuGame
           @grid[i][j].value = v
 
     return false if not @validate()
-    
+
     @updateCells()
     @save()
     return true
@@ -172,13 +172,13 @@ class SudokuGame
         d[i] = true
     return d
 
-  pencilString: (x, y) ->
+  pencilMarks: (x, y) ->
     cell = @grid[x][y]
-    s = ""
+    marks = []
     for i in [0...9]
       if cell.pencil[i]
-        s += String(i+1)
-    return s
+        marks.push i + 1
+    return marks
 
   do: (action, x, y, values, journal) ->
     if values.length > 0
@@ -259,7 +259,7 @@ class SudokuGame
         links.push @getBoxLinks(boxX, boxY, value)...
 
     # The box links might have duplicated some row and column links, so duplicates must be filtered out. Note that only
-    # locations are considered when finding duplicates, but strong links take precedence when duplicates are removed 
+    # locations are considered when finding duplicates, but strong links take precedence when duplicates are removed
     # (because they are ordered before weak links).
     links = links.sort(ascendingLinkSort).filter(uniqueLinkFilter)
 

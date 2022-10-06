@@ -183,13 +183,16 @@ class SudokuView
     @app.drawFill(px, py, @cellSize, @cellSize, "black")
     return
 
-  drawUnsolvedCell: (x, y, backgroundColor) ->
+  drawUnsolvedCell: (x, y, backgroundColor, marks) ->
     px = x * @cellSize
     py = y * @cellSize
-    text = @game.pencilString(i, j)
     if backgroundColor != null
       @app.drawFill(px, py, @cellSize, @cellSize, backgroundColor)
-    @app.drawTextCentered(text, px + (@cellSize / 2), py + (@cellSize / 2), @fonts.pencil, Color.pencil)
+    for m in marks
+      mx = px + ((m - 1) % 3) * @cellSize / 3 + @cellSize / 6
+      my = py + Math.floor((m - 1) / 3) * @cellSize / 3 + @cellSize / 6
+      text = String(m)
+      @app.drawTextCentered(text, mx, my, @fonts.pencil, Color.pencil)
     return
 
   drawSolvedCell: (x, y, backgroundColor, color, value) ->
@@ -245,7 +248,8 @@ class SudokuView
           backgroundColor = @chooseBackgroundColor(i, j, cell.locked)
 
           if cell.value == 0
-            @drawUnsolvedCell(i, j, backgroundColor)
+            marks = @game.pencilMarks(i, j)
+            @drawUnsolvedCell(i, j, backgroundColor, marks)
           else
             textColor = if cell.error then Color.error else Color.value
             @drawSolvedCell(i, j, backgroundColor, textColor, cell.value)
