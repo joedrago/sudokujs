@@ -77,6 +77,8 @@ class SudokuView
     @lineWidthThin = 1
     @lineWidthThick = Math.max(@cellSize / 20, 3)
     @linkDotRadius = @lineWidthThick
+    @centerX = 4.5 * @cellSize
+    @centerY = 4.5 * @cellSize
 
     fontPixelsS = Math.floor(@cellSize * 0.3)
     fontPixelsM = Math.floor(@cellSize * 0.5)
@@ -170,6 +172,12 @@ class SudokuView
             color = Color.backgroundConflicted
     return color
 
+  markOffset: (v) ->
+    {
+      x: ((v - 1) % 3) * @cellSize / 3 + @cellSize / 6
+      y: Math.floor((v - 1) / 3) * @cellSize / 3 + @cellSize / 6
+    }
+
   drawCell: (x, y, backgroundColor, s, font, color) ->
     px = x * @cellSize
     py = y * @cellSize
@@ -190,8 +198,9 @@ class SudokuView
     if backgroundColor != null
       @app.drawFill(px, py, @cellSize, @cellSize, backgroundColor)
     for m in marks
-      mx = px + ((m - 1) % 3) * @cellSize / 3 + @cellSize / 6
-      my = py + Math.floor((m - 1) / 3) * @cellSize / 3 + @cellSize / 6
+      offset = @markOffset(m)
+      mx = px + offset.x
+      my = py + offset.y
       text = String(m)
       @app.drawTextCentered(text, mx, my, @fonts.pencil, Color.pencil)
     return
@@ -218,12 +227,19 @@ class SudokuView
       @app.drawLine(@cellSize * (originX + i), @cellSize * (originY + 0), @cellSize * (originX + i), @cellSize * (originY + size), color, lineWidth)
     return
 
-  drawLink: (startX, startY, endX, endY, color, lineWidth) ->
-    x1 = (startX + 0.5) * @cellSize
-    y1 = (startY + 0.5) * @cellSize
-    x2 = (endX + 0.5) * @cellSize
-    y2 = (endY + 0.5) * @cellSize
-    r = 2.2 * Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)) # 2.2 gives the most curve without going off the board
+  drawLink: (startX, startY, endX, endY, color, lineWidth, v) ->
+    offset = @markOffset(v)
+    x1 = startX * @cellSize + offset.x
+    y1 = startY * @cellSize + offset.y
+    x2 = endX * @cellSize + offset.x
+    y2 = endY * @cellSize + offset.y
+
+    # Ensure that the arc curves toward the center
+    if (@centerX - x1) * (y2 - y1) - (@centerY - y1) * (x2 - x1) < 0
+      [x1, x2] = [x2, x1]
+      [y1, y2] = [y2, y1]
+
+    r = 1.3 * Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)) # 1.3 gives the most curve minimizing overlap of marks in other cells
     @app.drawArc(x1, y1, x2, y2, r, color, lineWidth)
     @app.drawPoint(x1, y1, @linkDotRadius, color)
     @app.drawPoint(x2, y2, @linkDotRadius, color)
@@ -260,9 +276,9 @@ class SudokuView
     # Draw links in LINKS mode
     if @mode is ModeType.LINKS
       for link in @strongLinks
-        @drawLink(link[0].x, link[0].y, link[1].x, link[1].y, Color.links, @lineWidthThick)
+        @drawLink(link[0].x, link[0].y, link[1].x, link[1].y, Color.links, @lineWidthThick, @penValue)
       for link in @weakLinks
-        @drawLink(link[0].x, link[0].y, link[1].x, link[1].y, Color.links, @lineWidthThin)
+        @drawLink(link[0].x, link[0].y, link[1].x, link[1].y, Color.links, @lineWidthThin, @penValue)
 
     # Draw pen and pencil number buttons
     done = @game.done()
