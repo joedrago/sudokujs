@@ -153,28 +153,30 @@ class SudokuView
   # -------------------------------------------------------------------------------------
   # Rendering
 
-  chooseBackgroundColor: (i, j, value, locked) ->
+  chooseBackgroundColor: (i, j, value, locked, marks) ->
     color = null
     if locked
       color = Color.backgroundLocked
 
-    if @mode is ModeType.HIGHLIGHTING
-      if (@highlightX != -1) && (@highlightY != -1)
-        if (i == @highlightX) && (j == @highlightY)
-          if locked
-            color = Color.backgroundLockedSelected
-          else
-            color = Color.backgroundSelected
-        else if @conflicts(i, j, @highlightX, @highlightY)
-          if locked
-            color = Color.backgroundLockedConflicted
-          else
-            color = Color.backgroundConflicted
-    if @mode is ModeType.PEN and @penValue == value and value != 0
-      if locked
-        color = Color.backgroundLockedSelected
-      else
-        color = Color.backgroundSelected
+    switch @mode
+      when ModeType.HIGHLIGHTING
+        if (@highlightX != -1) && (@highlightY != -1)
+          if (i == @highlightX) && (j == @highlightY)
+            if locked
+              color = Color.backgroundLockedSelected
+            else
+              color = Color.backgroundSelected
+          else if @conflicts(i, j, @highlightX, @highlightY)
+            if locked
+              color = Color.backgroundLockedConflicted
+            else
+              color = Color.backgroundConflicted
+      when ModeType.PEN
+        if @penValue == value and value != 0
+          color = Color.backgroundSelected
+      when ModeType.PENCIL
+        if value == 0 and @penValue in marks
+          color = Color.backgroundSelected
     return color
 
   markOffset: (v) ->
@@ -267,12 +269,12 @@ class SudokuView
         else
           # Draw solved or unsolved cell
           cell = @game.grid[i][j]
+          marks = @game.pencilMarks(i, j)
 
           # Determine background color
-          backgroundColor = @chooseBackgroundColor(i, j, cell.value, cell.locked)
+          backgroundColor = @chooseBackgroundColor(i, j, cell.value, cell.locked, marks)
 
           if cell.value == 0
-            marks = @game.pencilMarks(i, j)
             @drawUnsolvedCell(i, j, backgroundColor, marks)
           else
             textColor = if cell.error then Color.error else Color.value
