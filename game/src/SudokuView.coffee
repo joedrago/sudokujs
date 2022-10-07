@@ -61,6 +61,13 @@ ModeType =
 NONE = 0
 CLEAR = 10
 
+# If a second tap on a pen/pencil happens in this interval, toggle highlighting instead of switching modes
+HIGHLIGHT_TOGGLE_MS = 500
+
+now = ->
+  return Math.floor(Date.now())
+
+
 class SudokuView
   # -------------------------------------------------------------------------------------
   # Init
@@ -147,6 +154,8 @@ class SudokuView
     @penValue = NONE
     @highlightX = -1
     @highlightY = -1
+    @highlightSelected = false
+    @lastSelectedMS = now()
     @strongLinks = []
     @weakLinks = []
 
@@ -172,10 +181,10 @@ class SudokuView
             else
               color = Color.backgroundConflicted
       when ModeType.PEN
-        if @penValue == value and value != 0
+        if @highlightSelected and @penValue == value and value != 0
           color = Color.backgroundSelected
       when ModeType.PENCIL
-        if value == 0 and @penValue in marks
+        if @highlightSelected and value == 0 and @penValue in marks
           color = Color.backgroundSelected
     return color
 
@@ -407,13 +416,18 @@ class SudokuView
 
     # In PENCIL mode, the mode is changed to HIGHLIGHTING if the selected value is already current
     else if @mode is ModeType.PENCIL and (@penValue == action.value)
-      @mode = ModeType.HIGHLIGHTING
-      @penValue = NONE
+      dt = now() - @lastSelectedMS
+      @highlightSelected = (dt < HIGHLIGHT_TOGGLE_MS)
+      if not @highlightSelected
+        @mode = ModeType.HIGHLIGHTING
+        @penValue = NONE
 
     # Otherwise, the mode is switched to (or remains as) PENCIL using the selected value
     else
       @mode = ModeType.PENCIL
       @penValue = action.value
+      @lastSelectedMS = now()
+      @highlightSelected = false
 
       # Make sure any highlighting is off and links are cleared.
       @highlightX = -1
@@ -428,13 +442,18 @@ class SudokuView
 
     # In PEN mode, the mode is changed to HIGHLIGHTING if the selected value is already current
     if @mode is ModeType.PEN and (@penValue == action.value)
-      @mode = ModeType.HIGHLIGHTING
-      @penValue = NONE
+      dt = now() - @lastSelectedMS
+      @highlightSelected = (dt < HIGHLIGHT_TOGGLE_MS)
+      if not @highlightSelected
+        @mode = ModeType.HIGHLIGHTING
+        @penValue = NONE
 
     # Otherwise, the mode is switched to (or remains as) PEN using the selected value
     else
       @mode = ModeType.PEN
       @penValue = action.value
+      @lastSelectedMS = now()
+      @highlightSelected = false
 
       # Make sure any highlighting is off and links are cleared.
     @highlightX = -1
