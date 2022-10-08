@@ -67,6 +67,27 @@ HIGHLIGHT_TOGGLE_MS = 500
 now = ->
   return Math.floor(Date.now())
 
+KEY_MAPPING =
+  '0': { v: CLEAR, shift: false }
+  '1': { v: 1, shift: false }
+  '2': { v: 2, shift: false }
+  '3': { v: 3, shift: false }
+  '4': { v: 4, shift: false }
+  '5': { v: 5, shift: false }
+  '6': { v: 6, shift: false }
+  '7': { v: 7, shift: false }
+  '8': { v: 8, shift: false }
+  '9': { v: 9, shift: false }
+  ')': { v: CLEAR, shift: true }
+  '!': { v: 1, shift: true }
+  '@': { v: 2, shift: true }
+  '#': { v: 3, shift: true }
+  '$': { v: 4, shift: true }
+  '%': { v: 5, shift: true }
+  '^': { v: 6, shift: true }
+  '&': { v: 7, shift: true }
+  '*': { v: 8, shift: true }
+  '(': { v: 9, shift: true }
 
 class SudokuView
   # -------------------------------------------------------------------------------------
@@ -155,6 +176,7 @@ class SudokuView
     @highlightX = -1
     @highlightY = -1
     @highlightSelected = false
+    @preferPencil = false
     @lastSelectedMS = now()
     @strongLinks = []
     @weakLinks = []
@@ -521,6 +543,25 @@ class SudokuView
           setTimeout =>
             @draw()
           , 33
+
+  key: (k) ->
+    if k == '.'
+      @preferPencil = !@preferPencil
+      if @mode == ModeType.PEN
+        @handlePencilAction({ value: @penValue })
+      else if @mode == ModeType.PENCIL
+        @handlePenAction({ value: @penValue })
+      @draw()
+    else if KEY_MAPPING[k]?
+      mapping = KEY_MAPPING[k]
+      usePencil = @preferPencil
+      if mapping.shift
+        usePencil = !usePencil
+      if usePencil
+        @handlePencilAction({ value: mapping.v })
+      else
+        @handlePenAction({ value: mapping.v })
+      @draw()
 
   # -------------------------------------------------------------------------------------
   # Helpers

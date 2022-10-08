@@ -21,6 +21,9 @@ init = ->
     y = e.clientY - canvasRect.top
     window.app.click(x, y)
 
+  document.addEventListener 'keydown', (e) ->
+    window.app.key(e.key)
+
 window.addEventListener('load', (e) ->
     init()
 , false)

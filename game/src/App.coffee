@@ -80,6 +80,9 @@ class App
   click: (x, y) ->
     @view.click(x, y)
 
+  key: (k) ->
+    @view.key(k)
+
   drawFill: (x, y, w, h, color) ->
     @ctx.beginPath()
     @ctx.rect(x, y, w, h)
