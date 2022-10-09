@@ -52,7 +52,7 @@ ActionType =
   MODE: 6
 
 ModeType =
-  HIGHLIGHTING: 0
+  VISIBILITY: 0
   PENCIL: 1
   PEN: 2
   LINKS: 3
@@ -61,8 +61,8 @@ ModeType =
 NONE = 0
 CLEAR = 10
 
-# If a second tap on a pen/pencil happens in this interval, toggle highlighting instead of switching modes
-HIGHLIGHT_TOGGLE_MS = 500
+# If a second tap on a pen/pencil happens in this interval, toggle value highlighting instead of switching modes
+DOUBLE_TAP_INTERVAL_MS = 500
 
 now = ->
   return Math.floor(Date.now())
@@ -171,15 +171,15 @@ class SudokuView
     return
 
   resetState: ->
-    @mode = ModeType.HIGHLIGHTING
+    @mode = ModeType.VISIBILITY
     @penValue = NONE
-    @highlightX = -1
-    @highlightY = -1
-    @highlightSelected = false
+    @visibilityX = -1
+    @visibilityY = -1
     @preferPencil = false
-    @lastSelectedMS = now()
     @strongLinks = []
     @weakLinks = []
+    @highlightingValues = false
+    @lastValueTapMS = now() - DOUBLE_TAP_INTERVAL_MS # Ensure the next tap is not a double tap
 
   # -------------------------------------------------------------------------------------
   # Rendering
@@ -190,23 +190,23 @@ class SudokuView
       color = Color.backgroundLocked
 
     switch @mode
-      when ModeType.HIGHLIGHTING
-        if (@highlightX != -1) && (@highlightY != -1)
-          if (i == @highlightX) && (j == @highlightY)
+      when ModeType.VISIBILITY
+        if (@visibilityX != -1) && (@visibilityY != -1)
+          if (i == @visibilityX) && (j == @visibilityY)
             if locked
               color = Color.backgroundLockedSelected
             else
               color = Color.backgroundSelected
-          else if @conflicts(i, j, @highlightX, @highlightY)
+          else if @conflicts(i, j, @visibilityX, @visibilityY)
             if locked
               color = Color.backgroundLockedConflicted
             else
               color = Color.backgroundConflicted
       when ModeType.PEN
-        if @highlightSelected and @penValue == value and value != 0
+        if @highlightingValues and @penValue == value and value != 0
           color = Color.backgroundSelected
       when ModeType.PENCIL
-        if @highlightSelected and value == 0 and @penValue in marks
+        if @highlightingValues and value == 0 and @penValue in marks
           color = Color.backgroundSelected
     return color
 
@@ -355,7 +355,7 @@ class SudokuView
 
     # Draw mode
     switch @mode
-      when ModeType.HIGHLIGHTING
+      when ModeType.VISIBILITY
         modeColor = Color.modeSelect
         modeText = "Highlighting"
       when ModeType.PENCIL
@@ -383,6 +383,12 @@ class SudokuView
   # -------------------------------------------------------------------------------------
   # Input
 
+  # Determines if the interval is short enough to consider an tap to be a double tap.
+  doubleTapDetected: ->
+    # Double tap also depends on other context. This just measures the time.
+    dt = now() - @lastValueTapMS
+    return dt < DOUBLE_TAP_INTERVAL_MS
+
   newGame: (difficulty) ->
     console.log "SudokuView.newGame(#{difficulty})"
     @resetState()
@@ -404,13 +410,13 @@ class SudokuView
 
   handleSelectAction: (action) ->
     switch @mode
-      when ModeType.HIGHLIGHTING
-        if (@highlightX == action.x) && (@highlightY == action.y)
-          @highlightX = -1
-          @highlightY = -1
+      when ModeType.VISIBILITY
+        if (@visibilityX == action.x) && (@visibilityY == action.y)
+          @visibilityX = -1
+          @visibilityY = -1
         else
-          @highlightX = action.x
-          @highlightY = action.y
+          @visibilityX = action.x
+          @visibilityY = action.y
         return []
       when ModeType.PENCIL
         if @penValue == CLEAR
@@ -426,62 +432,90 @@ class SudokuView
         return [ action.x, action.y ]
 
   handlePencilAction: (action) ->
-    # In LINKS mode, all links associated with the number are shown. CLEAR shows nothing.
-    if @mode is ModeType.LINKS
-      if (action.value == CLEAR)
-        @penValue = NONE
-        @strongLinks = []
-        @weakLinks = []
-      else
-        @penValue = action.value
-        { strong: @strongLinks, weak: @weakLinks } = @game.getLinks(action.value)
-
-    # In PENCIL mode, the mode is changed to HIGHLIGHTING if the selected value is already current
-    else if @mode is ModeType.PENCIL and (@penValue == action.value)
-      dt = now() - @lastSelectedMS
-      @highlightSelected = (dt < HIGHLIGHT_TOGGLE_MS)
-      if not @highlightSelected
-        @mode = ModeType.HIGHLIGHTING
-        @penValue = NONE
-
-    # Otherwise, the mode is switched to (or remains as) PENCIL using the selected value
-    else
-      @mode = ModeType.PENCIL
-      @penValue = action.value
-      @lastSelectedMS = now()
-      @highlightSelected = false
-
-      # Make sure any highlighting is off and links are cleared.
-      @highlightX = -1
-      @highlightY = -1
-      @strongLinks = []
-      @weakLinks = []
-
-  handlePenAction: (action) ->
-    # Ignored in LINKS mode
-    if @mode is ModeType.LINKS
-      return
-
-    # In PEN mode, the mode is changed to HIGHLIGHTING if the selected value is already current
-    if @mode is ModeType.PEN and (@penValue == action.value)
-      dt = now() - @lastSelectedMS
-      @highlightSelected = (dt < HIGHLIGHT_TOGGLE_MS)
-      if not @highlightSelected
-        @mode = ModeType.HIGHLIGHTING
-        @penValue = NONE
-
-    # Otherwise, the mode is switched to (or remains as) PEN using the selected value
-    else
-      @mode = ModeType.PEN
-      @penValue = action.value
-      @lastSelectedMS = now()
-      @highlightSelected = false
-
-      # Make sure any highlighting is off and links are cleared.
-    @highlightX = -1
-    @highlightY = -1
+    # First, make sure any VISIBILITY and LINKS mode stuff is reset
+    @visibilityX = -1
+    @visibilityY = -1
     @strongLinks = []
     @weakLinks = []
+
+    switch @mode
+      # In LINKS, all links associated with the number are shown. CLEAR shows nothing.
+      when ModeType.LINKS
+        if (action.value == CLEAR)
+          @penValue = NONE
+          @strongLinks = []
+          @weakLinks = []
+        else
+          @penValue = action.value
+          { strong: @strongLinks, weak: @weakLinks } = @game.getLinks(action.value)
+
+      # In PENCIL, the mode is changed to VISIBILITY if the selected value is already current unless double tap
+      # Also, if double tap, then turn on highlighting values
+      when ModeType.PENCIL
+        if @penValue == action.value
+          if not @doubleTapDetected()
+            @highlightingValues = false
+            @lastValueTapMS = now()
+            @mode = ModeType.VISIBILITY
+            @penValue = NONE
+          else
+            @highlightingValues = true
+        else
+          @highlightingValues = false
+          @lastValueTapMS = now()
+          @penValue = action.value
+
+      # Otherwise, switch to PENCIL
+      else
+        # It is possible that the first tap changed the mode to VISIBILITY so a double tap must pretend that it didn't
+        if @mode is ModeType.VISIBILITY and @doubleTapDetected()
+          @highlightingValues = true
+        else
+          @highlightingValues = false
+          @lastValueTapMS = now()
+        @mode = ModeType.PENCIL
+        @penValue = action.value
+    return
+
+  handlePenAction: (action) ->
+    switch @mode
+      # In PEN, the mode is changed to VISIBILITY if the selected value is already current unless double tap
+      # Also, if double tap, then turn on highlighting values
+      when ModeType.PEN
+        if (@penValue == action.value)
+          if not @doubleTapDetected()
+            @highlightingValues = false
+            @lastValueTapMS = now()
+            @mode = ModeType.VISIBILITY
+            @penValue = NONE
+          else
+            @highlightingValues = true
+        else
+          @highlightingValues = false
+          @lastValueTapMS = now()
+          @penValue = action.value
+
+      # Ignored in LINKS
+      when ModeType.LINKS
+        return
+
+      # Otherwise, the mode is switched to (or remains as) PEN using the selected value
+      else
+        # It is possible that the first tap changed the mode to VISIBILITY so a double tap must pretend that it didn't
+        if @mode is ModeType.VISIBILITY and @doubleTapDetected()
+          @highlightingValues = true
+        else
+          @highlightingValues = false
+          @lastValueTapMS = now()
+        @mode = ModeType.PEN
+        @penValue = action.value
+
+    # Make sure any visibility highlighting is off and links are cleared.
+    @visibilityX = -1
+    @visibilityY = -1
+    @strongLinks = []
+    @weakLinks = []
+    return
 
   handleUndoAction: ->
     return @game.undo() if @mode isnt ModeType.LINKS
@@ -491,19 +525,22 @@ class SudokuView
 
   handleModeAction: ->
     switch @mode
-      when ModeType.HIGHLIGHTING
+      when ModeType.VISIBILITY
         @mode = ModeType.LINKS
       when ModeType.PENCIL
         @mode = ModeType.PEN
       when ModeType.PEN
-        @mode = ModeType.HIGHLIGHTING
+        @mode = ModeType.VISIBILITY
       when ModeType.LINKS
         @mode = ModeType.PENCIL
-    @highlightX = -1
-    @highlightY = -1
+    @visibilityX = -1
+    @visibilityY = -1
     @penValue = NONE
     @strongLinks = []
     @weakLinks = []
+    @highlightingValues = false
+    @lastValueTapMS = now() - DOUBLE_TAP_INTERVAL_MS    # Ensure that the next tap is not a double tap
+    return
 
   click: (x, y) ->
     # console.log "click #{x}, #{y}"
@@ -530,19 +567,22 @@ class SudokuView
             when ActionType.REDO then [ flashX, flashY ] = @handleRedoAction()
             when ActionType.MODE then @handleModeAction()
         else
-          # no action, default to highlighting mode
-          @mode = ModeType.HIGHLIGHTING
-          @highlightX = -1
-          @highlightY = -1
+          # no action, default to VISIBILITY mode
+          @mode = ModeType.VISIBILITY
+          @visibilityX = -1
+          @visibilityY = -1
           @penValue = NONE
           @strongLinks = []
           @weakLinks = []
+          @highlightingValues = false
+          @lastValueTapMS = now() - DOUBLE_TAP_INTERVAL_MS    # Ensure that the next tap is not a double tap
 
         @draw(flashX, flashY)
         if (flashX? && flashY?)
           setTimeout =>
             @draw()
           , 33
+    return
 
   key: (k) ->
     if k == '.'
@@ -562,6 +602,7 @@ class SudokuView
       else
         @handlePenAction({ value: mapping.v })
       @draw()
+      return
 
   # -------------------------------------------------------------------------------------
   # Helpers
