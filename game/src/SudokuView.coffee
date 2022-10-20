@@ -557,6 +557,7 @@ class SudokuView
           @highlightingValues = false
           @lastValueTapMS = now()
           @penValue = action.value
+        @preferPencil = true # Make sure the keyboard is also in pencil mode
 
       # Otherwise, switch to PENCIL
       else
@@ -568,6 +569,7 @@ class SudokuView
           @lastValueTapMS = now()
         @mode = ModeType.PENCIL
         @penValue = action.value
+        @preferPencil = true # Make sure the keyboard is also in pencil mode
     return
 
   handlePenAction: (action) ->
@@ -587,6 +589,7 @@ class SudokuView
           @highlightingValues = false
           @lastValueTapMS = now()
           @penValue = action.value
+        @preferPencil = false # Make sure the keyboard is also in pen mode
 
       # Ignored in LINKS
       when ModeType.LINKS
@@ -602,6 +605,7 @@ class SudokuView
           @lastValueTapMS = now()
         @mode = ModeType.PEN
         @penValue = action.value
+        @preferPencil = false # Make sure the keyboard is also in pen mode
 
     # Make sure any visibility highlighting is off and links are cleared.
     @visibilityX = -1
