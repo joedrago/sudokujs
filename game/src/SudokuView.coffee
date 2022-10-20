@@ -182,7 +182,7 @@ class SudokuView
     @actions[index] = { type: ActionType.REDO }
 
     # Mode switch
-    for i in [(MODE_POS_Y*9)+MODE_START_POS_X..(MODE_POS_Y*9)+MODE_END_POS_X]
+    for i in [(MODE_POS_Y * 9) + MODE_START_POS_X..(MODE_POS_Y * 9) + MODE_END_POS_X]
       @actions[i] = { type: ActionType.MODE }
 
     return
