@@ -24,6 +24,9 @@ UNDO_POS_Y = 13
 REDO_POS_X = 8
 REDO_POS_Y = 13
 
+CHECK_POS_X = 8
+CHECK_POS_Y = 9
+
 Color =
   value: "black"
   pencil: "#0000ff"
@@ -41,6 +44,7 @@ Color =
   modePen: "#000000"
   modePencil: "#0000ff"
   modeLinks: "#cc3333"
+  modeCheck: "#ff0000"
 
 ActionType =
   SELECT: 0
@@ -50,6 +54,7 @@ ActionType =
   UNDO: 4
   REDO: 5
   MODE: 6
+  CHECK: 7
 
 ModeType =
   VISIBILITY: 0
@@ -182,8 +187,12 @@ class SudokuView
     @actions[index] = { type: ActionType.REDO }
 
     # Mode switch
-    for i in [(MODE_POS_Y*9)+MODE_START_POS_X..(MODE_POS_Y*9)+MODE_END_POS_X]
+    for i in [(MODE_POS_Y * 9) + MODE_START_POS_X..(MODE_POS_Y * 9) + MODE_END_POS_X]
       @actions[i] = { type: ActionType.MODE }
+
+    # Check button
+    index = (CHECK_POS_Y * 9) + CHECK_POS_X
+    @actions[index] = { type: ActionType.CHECK }
 
     return
 
@@ -277,11 +286,11 @@ class SudokuView
     if backgroundColor != null
       @app.drawFill(px, py, @cellSize, @cellSize, backgroundColor)
     for m in marks
-      offset = @markOffset(m)
+      offset = @markOffset(m.value)
       mx = px + offset.x
       my = py + offset.y
-      text = String(m)
-      @app.drawTextCentered(text, mx, my, @fonts.pencil, Color.pencil)
+      text = String(m.value)
+      @app.drawTextCentered(text, mx, my, @fonts.pencil, m.color)
     return
 
   drawSolvedCell: (x, y, backgroundColor, color, value) ->
@@ -293,6 +302,11 @@ class SudokuView
     return
 
   drawGrid: (originX, originY, size, solved = false) ->
+    left = @cellSize * (originX + 0)
+    right = @cellSize * (originX + size)
+    top = @cellSize * (originY + 0)
+    bottom = @cellSize * (originY + size)
+
     for i in [0..size]
       color = if solved then "green" else "black"
       lineWidth = @lineWidthThin
@@ -300,10 +314,12 @@ class SudokuView
         lineWidth = @lineWidthThick
 
       # Horizontal lines
-      @app.drawLine(@cellSize * (originX + 0), @cellSize * (originY + i), @cellSize * (originX + size), @cellSize * (originY + i), color, lineWidth)
+      y = @cellSize * (originY + i)
+      @app.drawLine(left, y, right, y, color, lineWidth)
 
       # Vertical lines
-      @app.drawLine(@cellSize * (originX + i), @cellSize * (originY + 0), @cellSize * (originX + i), @cellSize * (originY + size), color, lineWidth)
+      x = @cellSize * (originX + i)
+      @app.drawLine(x, top, x, bottom, color, lineWidth)
     return
 
   drawLink: (startX, startY, endX, endY, color, lineWidth, v) ->
@@ -313,12 +329,28 @@ class SudokuView
     x2 = endX * @cellSize + offset.x
     y2 = endY * @cellSize + offset.y
 
-    # Ensure that the arc curves toward the center
-    if (@centerX - x1) * (y2 - y1) - (@centerY - y1) * (x2 - x1) < 0
+    # Ensure that the arc curves inward for marks nearer the outside and curves outward for marks nearer the center.
+    
+    # If the distance from the center to the midpoint of the line is greater than the distance from the center to the midpoint of
+    # the squares, then the line curves toward the center.
+    lineMidX = (x1 + x2) / 2
+    lineMidY = (y1 + y2) / 2
+    squaresMidX = @cellSize * (startX + endX + 1) / 2
+    squaresMidY = @cellSize * (startY + endY + 1) / 2
+
+    lineDist2 = (@centerX - lineMidX) * (@centerX - lineMidX) + (@centerY - lineMidY) * (@centerY - lineMidY)
+    squaresDist2 = (@centerX - squaresMidX) * (@centerX - squaresMidX) + (@centerY - squaresMidY) * (@centerY - squaresMidY)
+
+    centerIsLeft = (@centerX - x1) * (y2 - y1) - (@centerY - y1) * (x2 - x1) < 0
+
+    # When the grid center is left of the line, then the curve is automatically outward, so we have to swap if we want an inward
+    # curve, and vice versa
+    if (centerIsLeft && lineDist2 > squaresDist2) || (!centerIsLeft && lineDist2 < squaresDist2)
       [x1, x2] = [x2, x1]
       [y1, y2] = [y2, y1]
 
-    r = 1.3 * Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)) # 1.3 gives the most curve minimizing overlap of marks in other cells
+    curvature = 2.5 # 2.5 gives the most curve without overlapping other cells
+    r = curvature * Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1))
     @app.drawArc(x1, y1, x2, y2, r, color, lineWidth)
     @app.drawPoint(x1, y1, @linkDotRadius, color)
     @app.drawPoint(x2, y2, @linkDotRadius, color)
@@ -347,9 +379,16 @@ class SudokuView
           backgroundColor = @chooseBackgroundColor(i, j, cell.value, cell.locked, marks)
 
           if cell.value == 0
-            @drawUnsolvedCell(i, j, backgroundColor, marks)
+            if @mode == ModeType.CHECK
+              coloredMarks = ({ value: m, color: if @game.markIsGood(i, j, m) then Color.pencil else Color.error } for m in marks)
+            else
+              coloredMarks = ({ value: m, color: Color.pencil } for m in marks)
+            @drawUnsolvedCell(i, j, backgroundColor, coloredMarks)
           else
-            textColor = if cell.error then Color.error else Color.value
+            if @mode == ModeType.CHECK
+              textColor = if @game.solution[i][j] == cell.value then Color.value else Color.error
+            else
+              textColor = if cell.error then Color.error else Color.value
             @drawSolvedCell(i, j, backgroundColor, textColor, cell.value)
 
     # Draw links in LINKS mode
@@ -408,11 +447,16 @@ class SudokuView
       when ModeType.LINKS
         modeColor = Color.modeLinks
         modeText = "Links"
+      when ModeType.CHECK
+        modeColor = Color.modeCheck
+        modeText = "Checking"
+
     @drawCell(MODE_CENTER_POS_X, MODE_POS_Y, null, modeText, @fonts.menu, modeColor)
 
     @drawCell(MENU_POS_X, MENU_POS_Y, null, "Menu", @fonts.menu, Color.menu)
     @drawCell(UNDO_POS_X, UNDO_POS_Y, null, "\u{25c4}", @fonts.menu, Color.menu) if (@game.undoJournal.length > 0)
     @drawCell(REDO_POS_X, REDO_POS_Y, null, "\u{25ba}", @fonts.menu, Color.menu) if (@game.redoJournal.length > 0)
+    @drawCell(CHECK_POS_X, CHECK_POS_Y, null, "\u{2714}", @fonts.menu, Color.error)
 
     # Make the grids
     @drawGrid(0, 0, 9, @game.solved)
@@ -513,6 +557,7 @@ class SudokuView
           @highlightingValues = false
           @lastValueTapMS = now()
           @penValue = action.value
+        @preferPencil = true # Make sure the keyboard is also in pencil mode
 
       # Otherwise, switch to PENCIL
       else
@@ -524,6 +569,7 @@ class SudokuView
           @lastValueTapMS = now()
         @mode = ModeType.PENCIL
         @penValue = action.value
+        @preferPencil = true # Make sure the keyboard is also in pencil mode
     return
 
   handlePenAction: (action) ->
@@ -543,6 +589,7 @@ class SudokuView
           @highlightingValues = false
           @lastValueTapMS = now()
           @penValue = action.value
+        @preferPencil = false # Make sure the keyboard is also in pen mode
 
       # Ignored in LINKS
       when ModeType.LINKS
@@ -558,6 +605,7 @@ class SudokuView
           @lastValueTapMS = now()
         @mode = ModeType.PEN
         @penValue = action.value
+        @preferPencil = false # Make sure the keyboard is also in pen mode
 
     # Make sure any visibility highlighting is off and links are cleared.
     @visibilityX = -1
@@ -567,10 +615,10 @@ class SudokuView
     return
 
   handleUndoAction: ->
-    return @game.undo() if @mode isnt ModeType.LINKS
+    return @game.undo() if @mode isnt ModeType.LINKS and @mode isnt ModeType.CHECK
 
   handleRedoAction: ->
-    return @game.redo() if @mode isnt ModeType.LINKS
+    return @game.redo() if @mode isnt ModeType.LINKS and @mode isnt ModeType.CHECK
 
   handleModeAction: ->
     switch @mode
@@ -580,8 +628,19 @@ class SudokuView
         @mode = ModeType.PEN
       when ModeType.PEN
         @mode = ModeType.VISIBILITY
-      when ModeType.LINKS
+      when ModeType.LINKS, ModeType.CHECK
         @mode = ModeType.PENCIL
+    @visibilityX = -1
+    @visibilityY = -1
+    @penValue = NONE
+    @strongLinks = []
+    @weakLinks = []
+    @highlightingValues = false
+    @lastValueTapMS = now() - DOUBLE_TAP_INTERVAL_MS    # Ensure that the next tap is not a double tap
+    return
+
+  handleCheckAction: ->
+    @mode = ModeType.CHECK
     @visibilityX = -1
     @visibilityY = -1
     @penValue = NONE
@@ -615,6 +674,7 @@ class SudokuView
             when ActionType.UNDO then [ flashX, flashY ] = @handleUndoAction()
             when ActionType.REDO then [ flashX, flashY ] = @handleRedoAction()
             when ActionType.MODE then @handleModeAction()
+            when ActionType.CHECK then @handleCheckAction()
         else
           # no action, default to VISIBILITY mode
           @mode = ModeType.VISIBILITY
@@ -640,13 +700,15 @@ class SudokuView
         @handlePencilAction({ value: @penValue })
       else if @mode == ModeType.PENCIL
         @handlePenAction({ value: @penValue })
+      else if @mode == ModeType.LINKS
+        @handleModeAction()
       @draw()
     else if KEY_MAPPING[k]?
       mapping = KEY_MAPPING[k]
       usePencil = @preferPencil
       if mapping.shift
         usePencil = !usePencil
-      if usePencil
+      if usePencil or @mode == ModeType.LINKS
         @handlePencilAction({ value: mapping.v })
       else
         @handlePenAction({ value: mapping.v })

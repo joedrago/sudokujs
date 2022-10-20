@@ -9,7 +9,7 @@ shuffle = (a) ->
 
 class Board
   constructor: (otherBoard = null) ->
-    @lockedCount = 0;
+    @lockedCount = 0
     @grid = new Array(9).fill(null)
     @locked = new Array(9).fill(null)
     for i in [0...9]
@@ -34,7 +34,7 @@ class Board
       @lockedCount += 1 if not @locked[x][y]
     else
       @lockedCount -= 1 if @locked[x][y]
-    @locked[x][y] = v;
+    @locked[x][y] = v
 
 
 class SudokuGenerator
@@ -150,7 +150,7 @@ class SudokuGenerator
     return true if unlockedCount == 0
 
     # check for a second solution
-    return @solveInternal(solved, attempts, unlockedCount-1) == null
+    return @solveInternal(solved, attempts, unlockedCount - 1) == null
 
   solveInternal: (solved, attempts, walkIndex = 0) ->
     unlockedCount = 81 - solved.lockedCount
@@ -186,6 +186,8 @@ class SudokuGenerator
       for i in [0...9]
         board.lock(i, j)
 
+    solution = new Board(board)
+
     indexesToRemove = shuffle([0...81])
     removed = 0
     while removed < amountToRemove
@@ -208,8 +210,9 @@ class SudokuGenerator
         # console.log "failed to remove #{rx},#{ry}, creates non-unique solution"
 
     return {
-      board: board
-      removed: removed
+      board
+      removed
+      solution
     }
 
   generate: (difficulty) ->
@@ -234,7 +237,7 @@ class SudokuGenerator
       console.log "current best #{best.removed} / #{amountToRemove}"
 
     console.log "giving user board: #{best.removed} / #{amountToRemove}"
-    return @boardToGrid(best.board)
+    return [@boardToGrid(best.board), @boardToGrid(best.solution)]
 
   validateGrid: (grid) ->
     return @hasUniqueSolution(@gridToBoard(grid))
